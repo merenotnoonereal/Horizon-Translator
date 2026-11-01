@@ -1,0 +1,17 @@
+[package]
+name = "horizon-shaderport"
+version = "0.1.0"
+edition = "2024"
+description = "Runs Horizon's own shader pack loader over an Iris/OptiFine pack, rewrites what it skips, and writes a pack Horizon runs"
+
+# Its own workspace: Horizon's source is only a path dependency.
+[workspace]
+
+[dependencies]
+horizon-shaders = { path = "../horizon-src/crates/horizon-shaders" }
+naga = { version = "30.0.1", features = ["glsl-in", "wgsl-in", "spv-out"] }
+png = "0.17"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[profile.dev]
+opt-level = 2

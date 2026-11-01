@@ -1,0 +1,11 @@
+Horizon Translator: before you install
+
+This is a free community tool. It is not made by or affiliated with Mojang, Microsoft, the Horizon project, Fabric, Iris or OptiFine.
+
+- The mod converter is experimental. It helps you port a Fabric mod to Horizon but most mods come out only partly working. What's left to do is listed in each converted mod's PORTING.md.
+- Only convert mods and shader packs you're allowed to modify. Converted files are for your own use; share them only if the original licence allows it.
+- Everything runs on this PC. Nothing you convert is uploaded.
+- Converted mods are native code that you build into Horizon yourself. Only build mods you trust.
+- This installer is not code-signed, so Windows SmartScreen may warn you. Click "More info" then "Run anyway" if you trust where you downloaded it from (the project's GitHub Releases page).
+
+The software is provided "as is", without warranty of any kind. Full terms: https://github.com/merenotnoonereal/Horizon-Translator/blob/main/web/public/terms.html
