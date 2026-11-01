@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Horizon Translator</title>
+  <meta name="description" content="Convert Fabric mods and Iris/OptiFine shader packs so they run in Horizon, the Rust rewrite of Minecraft Java.">
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/">
+        <img src="logo.png" alt="" width="28" height="28">
+        <span>Horizon Translator</span>
+      </a>
+      <nav>
+        <a href="#convert">Convert</a>
+        <a href="#how">How it works</a>
+        <a href="#faq">FAQ</a>
+        <a class="repo-issues" href="#" rel="noopener" target="_blank">Report an issue</a>
+        <a href="#support" class="nav-support">Support me &#9829;</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <h1>Bring your mods and shaders to Horizon</h1>
+      <p class="lead">
+        Convert <strong>Iris / OptiFine shader packs</strong> right here in your browser, and <strong>Fabric mods</strong>
+        with the free Windows app. The translator rewrites them for <a href="https://github.com/horizon-rust/horizon" rel="noopener">Horizon</a>,
+        the Rust rewrite of Minecraft Java.
+      </p>
+      <p id="server-status" class="status-line" aria-live="polite">Checking your browser…</p>
+    </section>
+
+    <section id="convert" class="wrap">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-mod" aria-selected="true" aria-controls="panel-mod" class="tab active">Mods</button>
+        <button role="tab" id="tab-shader" aria-selected="false" aria-controls="panel-shader" class="tab">Shader packs</button>
+      </div>
+
+      <div class="panel" id="panel-mod" role="tabpanel" aria-labelledby="tab-mod">
+        <div class="notice" role="note">
+          <strong>Experimental: don't expect a finished mod.</strong>
+          The mod converter is a helper, not a one-click port. It does a lot of the work for you, but most mods
+          come out only partly working: anything built on Minecraft features Horizon doesn't have yet is switched
+          off and listed in <code>PORTING.md</code> for you to finish. Try it on a popular mod to see what it does.
+        </div>
+        <div class="download">
+          <img src="logo.png" alt="" width="64" height="64">
+          <div>
+            <h3>Horizon Translator for Windows</h3>
+            <p>Mods are converted by a free desktop app, so everything runs on your own PC and nothing is uploaded.
+            It has the same menu as this site and converts shader packs too.</p>
+            <a class="go" id="download-app" href="#">Download for Windows (.exe)</a>
+            <p class="small-print">Windows 10/11 · about 45 MB · Java is included, nothing else to install</p>
+          </div>
+        </div>
+        <div class="steps">
+          <h4>How to use it</h4>
+          <ol>
+            <li>Run <code>HorizonTranslator-Setup.exe</code>. The installer isn't code-signed, so Windows may show
+              <em>"Windows protected your PC"</em>: click <strong>More info</strong> → <strong>Run anyway</strong>.
+              Only do this with the file from this site or the project's GitHub Releases page.</li>
+            <li>Open <strong>Horizon Translator</strong>, pick the <strong>Mods</strong> tab and drop in a Fabric mod <code>.jar</code>.</li>
+            <li>Press <strong>Convert mod</strong>. The result is saved in <code>Documents\Horizon Translator</code>.</li>
+            <li>Read <code>PORTING.md</code>, then build it into Horizon:
+              <code>horizon-launcher native-build &lt;folder&gt;/mixins/&lt;modid&gt; --trust-native-code</code>.
+              Only build mods you trust: native mods have full access to your computer.</li>
+          </ol>
+          <p class="hint">The app only decompiles mods whose licence allows it (MIT, Apache, GPL, LGPL, MPL, OSL and similar).
+          <em>All Rights Reserved</em> mods are only converted for their author ("I made this mod").</p>
+        </div>
+        <p class="agree">By downloading you agree to the <a href="terms.html">Terms of Use</a>: only convert files you're allowed to modify.</p>
+      </div>
+
+      <div class="panel" id="panel-shader" role="tabpanel" aria-labelledby="tab-shader" hidden>
+        <label class="drop" data-kind="shader">
+          <input type="file" accept=".zip" hidden>
+          <span class="drop-icon" aria-hidden="true">⬆</span>
+          <span class="drop-title">Drop a shader pack <code>.zip</code> here</span>
+          <span class="drop-sub">Iris or OptiFine format</span>
+          <span class="drop-file"></span>
+        </label>
+        <div class="options">
+          <p class="hint">
+            Works with packs like BSL, Complementary, Bliss, Photon, Noble, Mellow, MakeUp, Solas and Super Duper Vanilla.
+            Converting takes from a few seconds to a few minutes for big packs.
+          </p>
+        </div>
+        <button class="go" data-kind="shader" disabled>Convert shader pack</button>
+        <p class="agree">By converting a file you agree to the <a href="terms.html">Terms of Use</a>: only convert files you're allowed to modify.</p>
+      </div>
+
+      <div id="working" class="working" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <div>
+          <strong id="working-title">Converting…</strong>
+          <p id="working-sub"></p>
+        </div>
+      </div>
+
+      <div id="result" class="result" hidden>
+        <div class="result-head">
+          <span id="result-badge" class="badge"></span>
+          <h2 id="result-title"></h2>
+        </div>
+        <p id="result-summary" class="summary"></p>
+        <div class="result-actions">
+          <a id="result-download" class="go small" href="#" download hidden>Download</a>
+          <button id="result-again" class="ghost small">Convert another</button>
+          <a id="result-issue" class="ghost small" href="#" rel="noopener" target="_blank">Report a problem</a>
+        </div>
+        <div id="result-next" class="next" hidden></div>
+        <details id="report-box" open>
+          <summary>Report</summary>
+          <div id="report" class="md"></div>
+        </details>
+        <details id="translation-box" hidden>
+          <summary>Java → Rust translation details</summary>
+          <div id="translation" class="md"></div>
+        </details>
+        <details>
+          <summary>Converter log</summary>
+          <pre id="log"></pre>
+        </details>
+      </div>
+    </section>
+
+    <section id="how" class="wrap">
+      <h2>How it works</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Mods: Fabric → Horizon native mod</h3>
+          <ol>
+            <li><strong>Licence check.</strong> Reads <code>fabric.mod.json</code> and any licence file. Open licences pass; All Rights Reserved is refused.</li>
+            <li><strong>Decompile.</strong> Turns the jar back into Java with Vineflower. The Java stays on your PC and is deleted straight away.</li>
+            <li><strong>Map the mixins.</strong> Each <code>@Inject</code>, <code>@Redirect</code>, <code>@ModifyArg</code>… is matched to the Horizon function that does the same job, using a mapping table and Horizon's own source.</li>
+            <li><strong>Translate Java to Rust.</strong> Config, keys, HUD and tick code, maths, JSON, regex, streams and more become Rust that calls Horizon.</li>
+            <li><strong>Write a bundle.</strong> A <code>horizon-mixin.toml</code> bundle you build into the game with the Horizon launcher, plus <code>PORTING.md</code> listing anything left to do.</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>Shaders: Iris/OptiFine → Horizon pack</h3>
+          <ol>
+            <li><strong>Load it like the game does.</strong> Runs Horizon's real shader loader (GLSL → naga → SPIR-V) offline, for every dimension, and lists each program it would skip.</li>
+            <li><strong>Fix what fails.</strong> Tries about 20 rewrite rules on the GLSL (3D textures, compute passes, out-arguments, buffer formats…). A rule is kept only if more programs load and nothing that loaded breaks.</li>
+            <li><strong>Fix how it draws.</strong> Passes that work around differences in how Horizon renders: normals, matrices, missing uniforms, cleared buffers, noise textures, skies.</li>
+            <li><strong>Write the pack.</strong> A <code>-horizon.zip</code> for Horizon's <code>shaderpacks</code> folder, with a report of every change.</li>
+          </ol>
+        </article>
+      </div>
+      <p class="more">The full technical description is in the project's <a href="https://github.com/" id="repo-link" rel="noopener">README on GitHub</a>.</p>
+    </section>
+
+    <section id="faq" class="wrap">
+      <h2>FAQ</h2>
+      <details class="faq"><summary>How do I install a converted shader pack?</summary>
+        <p>Put the downloaded <code>…-horizon.zip</code> in <code>%APPDATA%\horizon\shaderpacks</code> (Windows) or <code>~/.local/share/horizon/shaderpacks</code>, then pick it in <em>Options → Horizon Settings → Shader Packs</em>.</p></details>
+      <details class="faq"><summary>How do I install a converted mod?</summary>
+        <p>Unzip the bundle. Horizon native mods are compiled into the game, so build it with the Horizon launcher:
+        <code>horizon-launcher native-build &lt;bundle&gt;/mixins/&lt;modid&gt; --trust-native-code</code>.
+        Only do that for code you trust: a native mod runs with full access to your computer. Read <code>PORTING.md</code> first.</p></details>
+      <details class="faq"><summary>Will every feature of my mod work?</summary>
+        <p>Probably not. The mod converter is meant to help you port a mod, not do it 100% for you. Code that only uses plain Java converts well. Code that reaches deep into Minecraft (custom screens, entity renderers, resource packs) often has no Horizon equivalent yet. Those parts are switched off and listed in <code>PORTING.md</code>, so the mod still loads.</p></details>
+      <details class="faq"><summary>Do you keep my files?</summary>
+        <p>Your files never leave your computer. Shader packs are converted inside your browser (WebAssembly) and mods by the desktop app on your PC, so nothing is uploaded and there's no server that could keep anything. Decompiled Java is deleted as soon as a conversion ends.</p></details>
+      <details class="faq"><summary>Something went wrong. How do I report it?</summary>
+        <p>Open an issue on <a class="repo-issues" href="#" rel="noopener" target="_blank">GitHub</a>, or press <em>Report a problem</em> under a result to start one with the details filled in.
+        Say which mod or shader pack (with a download link), what you expected, and paste the converter log. Don't attach mods or packs you aren't allowed to share.</p></details>
+      <details class="faq"><summary>Is this official?</summary>
+        <p>No. It's a community tool and isn't made by the Horizon, Fabric, Iris or OptiFine teams, or by Mojang or Microsoft.</p></details>
+    </section>
+    <section id="support" class="wrap">
+      <h2>Support me</h2>
+      <p id="support-message" class="hint"></p>
+      <div id="support-wallets" class="support-grid"></div>
+      <p id="support-warning" class="hint support-warning" hidden>Only send on the networks listed under each address.
+        Crypto sent on another network or to a mistyped address can't be got back. Scan the QR code or use Copy instead of typing an address.</p>
+      <div id="support-links" class="donate-links"></div>
+      <p id="support-empty" class="hint" hidden>Donation addresses haven't been added yet. Thanks for thinking of it!</p>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p class="foot-links">
+      <a class="repo-link" href="#" rel="noopener" target="_blank">Source code on GitHub</a>
+      <a class="repo-issues" href="#" rel="noopener" target="_blank">Report an issue</a>
+      <a class="repo-ideas" href="#" rel="noopener" target="_blank">Suggest a feature</a>
+      <a href="terms.html">Terms of Use</a>
+    </p>
+    <p>Horizon Translator · community project · not affiliated with Mojang, Microsoft or the Horizon team.</p>
+    <p>Provided as is, with no warranty. Converted mods and shader packs may not work fully or at all; keep backups, and only build mods you trust into your game.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script src="markdown.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

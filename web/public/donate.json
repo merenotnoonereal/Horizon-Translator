@@ -1,0 +1,32 @@
+{
+  "message": "Horizon Translator is free and made in my spare time. If it helped you, you can support me with crypto. Thank you!",
+  "wallets": [
+    {
+      "name": "Bitcoin",
+      "coins": "BTC",
+      "type": "bitcoin",
+      "networks": "Bitcoin network only",
+      "address": "bc1qj2ky2j5rzxwtpk3zv7x5xtp3jvh33d9nr7ulkt"
+    },
+    {
+      "name": "Ethereum & EVM",
+      "coins": "ETH, USDC, USDT",
+      "type": "evm",
+      "networks": "Ethereum, Base, Arbitrum, Optimism or Polygon",
+      "address": "0xB223E06c64D715a4b8e27394e75cE0eeb72B6778"
+    },
+    {
+      "name": "Solana",
+      "coins": "SOL, USDC",
+      "type": "solana",
+      "networks": "Solana network only",
+      "address": ""
+    }
+  ],
+  "links": [
+    {
+      "name": "GitHub Sponsors",
+      "url": ""
+    }
+  ]
+}

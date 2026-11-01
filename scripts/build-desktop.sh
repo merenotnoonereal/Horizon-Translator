@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Builds the Windows app: dist/HorizonTranslator-Setup.exe (unsigned).
+# Needs: JDK 21+ (with jpackage), Rust, Python 3, Inno Setup 6, and ./horizon-src (scripts/get-horizon.sh).
+# Set SHADERPORT_EXE to use an already-built horizon-shaderport.exe instead of building it,
+# and HORIZON_SRC to use Horizon's source from another folder.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+HORIZON_SRC="${HORIZON_SRC:-horizon-src}"
+[ -f "$HORIZON_SRC/Cargo.toml" ] || bash scripts/get-horizon.sh
+# Build folder: keep it out of OneDrive/Dropbox folders, which lock files while syncing.
+B="${BUILD_DIR:-desktop/build}"
+DIST="${DIST_DIR:-dist}"
+rm -rf "$B" && mkdir -p "$B/input/mappings" "$B/classes"
+
+echo "== mod converter"
+bash mod-converter/build.sh
+echo "== shader converter"
+if [ -z "${SHADERPORT_EXE:-}" ]; then
+  ( cd shader-converter && cargo build --release )
+  SHADERPORT_EXE=shader-converter/target/release/horizon-shaderport.exe
+fi
+echo "== app"
+javac --release 21 -nowarn -cp mod-converter/build/horizon-port.jar -d "$B/classes" desktop/src/horizonport/*.java
+JAR_TOOL="$(dirname "$(command -v javac)")/jar"
+"$JAR_TOOL" --create --file "$B/input/horizon-translator-app.jar" --main-class horizonport.TranslatorApp -C "$B/classes" .
+cp mod-converter/build/horizon-port.jar mod-converter/tools/vineflower-*.jar "$B/input/"
+cp mod-converter/mappings/horizon-mappings.json "$B/input/mappings/"
+cp "$SHADERPORT_EXE" "$B/input/horizon-shaderport.exe"
+cp web/public/logo.png web/public/donate.json "$B/input/"
+python desktop/make-horizon-zip.py "$HORIZON_SRC" "$B/input/horizon-src.zip"
+python desktop/make-ico.py web/public/logo.png "$B/logo.ico"
+
+echo "== app image (bundles Java)"
+jpackage --type app-image --dest "$B/app-image" --name "Horizon Translator" \
+  --input "$B/input" --main-jar horizon-translator-app.jar --main-class horizonport.TranslatorApp \
+  --icon "$B/logo.ico" --app-version "${APP_VERSION:-1.0.0}" --vendor "Horizon Translator" \
+  --description "Converts Fabric mods and shader packs for Horizon" \
+  --add-modules java.base,java.desktop,jdk.zipfs \
+  --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=zip-9"
+
+echo "== installer"
+ISCC="${ISCC:-}"
+for c in "$ISCC" "$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe" "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/c/Program Files/Inno Setup 6/ISCC.exe"; do
+  [ -n "$c" ] && [ -f "$c" ] && ISCC="$c" && break
+done
+[ -f "$ISCC" ] || { echo "Inno Setup 6 not found: install it or set ISCC" >&2; exit 1; }
+mkdir -p "$DIST"
+winpath() { cygpath -w "$1" 2>/dev/null || echo "$1"; }
+MSYS2_ARG_CONV_EXCL="*" "$ISCC" /Q "/DBuildDir=$(winpath "$(cd "$B" && pwd)")" "/DDistDir=$(winpath "$(cd "$DIST" && pwd)")" desktop/installer.iss
+ls -la "$DIST/HorizonTranslator-Setup.exe"
+echo "Upload $DIST/HorizonTranslator-Setup.exe to a GitHub Release (see README)."
