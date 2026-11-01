@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "_about": "Maps the test mod onto the stand-in Horizon source in fixture/horizon-src, for the generate test.",
+  "methods": {
+    "net/minecraft/client/player/LocalPlayer#aiStep": { "rust": "horizon_client::player::local_player::LocalPlayer::ai_step" },
+    "net/minecraft/client/player/LocalPlayer#setSprinting": { "rust": "horizon_client::player::local_player::LocalPlayer::set_sprinting" }
+  }
+}

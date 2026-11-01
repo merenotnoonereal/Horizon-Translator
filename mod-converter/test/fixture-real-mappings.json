@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "_about": "Matches `match` found for the test mod in Horizon nightly a46ce68, to test generate against real source.",
+  "methods": {
+    "net/minecraft/client/player/LocalPlayer#aiStep": { "rust": "horizon_client::motion::PlayerMotion::sprint_input_tick" },
+    "net/minecraft/client/player/LocalPlayer#setSprinting": { "rust": "horizon_client::motion::PlayerMotion::set_sprinting" }
+  }
+}
