@@ -1,5 +1,5 @@
-// Horizon Translator upload page.
-// Change this if your GitHub repository has another address.
+// Horizon Translator website: converts shader packs in the browser, links to the Windows app.
+// The project's GitHub repository (issue links and the app download).
 const REPO_URL = "https://github.com/merenotnoonereal/Horizon-Translator";
 
 const $ = (s, root = document) => root.querySelector(s);
