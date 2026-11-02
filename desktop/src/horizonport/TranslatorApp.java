@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 public final class TranslatorApp {
     static final String REPO_URL = "https://github.com/merenotnoonereal/Horizon-Translator";
     static final String SITE_TERMS = REPO_URL + "/blob/main/web/public/terms.html";
+    static final String DISCORD_URL = "https://discord.gg/nzqXYDXmq6";
 
     // Colours from the website (light theme).
     static final Color BG = new Color(0xf6f7f4), SURFACE = Color.WHITE, SURFACE2 = new Color(0xeef1ec),
@@ -189,6 +190,7 @@ public final class TranslatorApp {
         links.setOpaque(false);
         links.add(link("How it works", REPO_URL + "/blob/main/docs/HOW-IT-WORKS.md"));
         links.add(link("Report an issue", REPO_URL + "/issues/new/choose"));
+        links.add(link("Discord", DISCORD_URL));
         JLabel support = label("<html><u>Support me ♥</u></html>", ACCENT, 13f, true);
         support.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         support.addMouseListener(new java.awt.event.MouseAdapter() {
