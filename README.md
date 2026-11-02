@@ -6,7 +6,8 @@ Convert **Fabric mods** and **Iris / OptiFine shader packs** so they run in
 **[Open the website](https://merenotnoonereal.github.io/Horizon-Translator/)** ·
 **[Download the Windows app](https://github.com/merenotnoonereal/Horizon-Translator/releases/latest/download/HorizonTranslator-Setup.exe)** ·
 **[Linux app](https://github.com/merenotnoonereal/Horizon-Translator/releases/latest/download/HorizonTranslator-linux-x64.tar.gz)** ·
-[Report an issue](https://github.com/merenotnoonereal/Horizon-Translator/issues/new/choose)
+[Report an issue](https://github.com/merenotnoonereal/Horizon-Translator/issues/new/choose) ·
+[Discord](https://discord.gg/nzqXYDXmq6)
 
 It comes as a **website** and a **Windows app**. Everything runs on the user's own computer: nothing is
 ever uploaded, and there is no server to run or pay for.
