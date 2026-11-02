@@ -176,6 +176,25 @@ horizon-launcher native-build out/<mod id>-horizon --trust-native-code
 
 Native mods aren't sandboxed: read the code before trusting it.
 
+### Full ports: the `.hnmod`
+
+`generate` and `port` end by saying whether the result is a **full port** (`PORTING.md`, "Ready to use?"):
+no mixin commented out, no `TODO` left in the code, every Java method and static translated (or done
+another way in Horizon), every Fabric handler translated whole, and nothing a content mod must carry
+(data files, assets other than translations and the icon, block or item registration). A full port is also
+packed as `<bundle>/<mod id>.hnmod`, the file Horizon's launcher installs native mods from
+(`horizon_mods::index::native`: `horizon-native.json` with the Horizon and horizon-mixins commits, plus
+`mixins/<id>/`). A bundle that only uses hook points gets `hooks` in its manifest, so it builds on newer
+Horizon commits too. Otherwise it's pinned to the commit it was made on.
+
+`--install` (or `--install-to GAME_FOLDER`) also puts a full port into `horizon-native-mods/` in Horizon's
+game folder (`%APPDATA%\horizon`) and turns it on in `horizon-mods.txt`, as the launcher's own install does.
+The launcher compiles it on the next **Build** (or `horizon-launcher native-build --trust-native-code`).
+Anything short of a full port gets no `.hnmod`, and `PORTING.md` lists what's left.
+
+The Horizon commit comes from `--horizon-revision`, or else from the source's `.horizon-revision` file
+(Horizon's source archives have it; `scripts/get-horizon.sh` writes it).
+
 ## The mod's own logic in Rust: `translate`
 
 ```bash

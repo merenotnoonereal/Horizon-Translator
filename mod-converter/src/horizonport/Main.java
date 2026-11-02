@@ -26,7 +26,7 @@ public final class Main {
         String cmd = args[0];
         List<String> positional = new ArrayList<>();
         List<Path> mappingFiles = new ArrayList<>();
-        Path out = null, horizonSrc = null, javaSrc = null, vineflower = null;
+        Path out = null, horizonSrc = null, javaSrc = null, vineflower = null, install = null;
         String revision = null, author = null;
         int minScore = 6;
         for (int i = 1; i < args.length; i++) {
@@ -39,6 +39,8 @@ public final class Main {
                 case "--java-src" -> javaSrc = Path.of(value(args, ++i));
                 case "--i-am-the-author" -> author = value(args, ++i);
                 case "--vineflower" -> vineflower = Path.of(value(args, ++i));
+                case "--install" -> install = NativePackage.defaultHome();
+                case "--install-to" -> install = Path.of(value(args, ++i));
                 default -> positional.add(args[i]);
             }
         }
@@ -97,7 +99,7 @@ public final class Main {
                     js = JavaSource.index(javaSrc);
                     if (js.size() == 0) System.out.println("No .java files under " + javaSrc);
                 }
-                generate(Path.of(positional.get(0)), mappings, minScore, horizonSrc, revision, js, out);
+                generate(Path.of(positional.get(0)), mappings, minScore, horizonSrc, revision, js, out, install);
                 return 0;
             }
             case "license" -> {
@@ -127,7 +129,7 @@ public final class Main {
                 if (cmd.equals("decompile")) return 0;
                 JavaSource js = JavaSource.index(srcDir);
                 js.label = "Decompiled Java";
-                Path dir = generate(jar, mappings, minScore, horizonSrc, revision, js, out);
+                Path dir = generate(jar, mappings, minScore, horizonSrc, revision, js, out, install);
                 Path porting = dir.resolve("PORTING.md");
                 Files.writeString(porting, Files.readString(porting) + "\n## Licence\n\n" + check.substring(check.indexOf('\n') + 1).strip()
                         + (System.getProperty("horizonport.srcdir") != null
@@ -144,7 +146,13 @@ public final class Main {
     }
 
     /** analyze, match (taking the high-confidence matches), then write the bundle. Returns its folder. */
-    private static Path generate(Path jar, Mappings mappings, int minScore, Path horizonSrc, String revision, JavaSource js, Path out) throws Exception {
+    private static Path generate(Path jar, Mappings mappings, int minScore, Path horizonSrc, String revision, JavaSource js, Path out, Path install)
+            throws Exception {
+        // The commit of the source given (Horizon's own source archives carry it in .horizon-revision).
+        if (revision == null && horizonSrc != null && Files.isRegularFile(horizonSrc.resolve(".horizon-revision"))) {
+            String r = Files.readString(horizonSrc.resolve(".horizon-revision")).strip();
+            if (r.matches("[0-9a-f]{40}")) revision = r;
+        }
         if (revision != null && !revision.matches("[0-9a-f]{40}")) throw new IllegalArgumentException("--horizon-revision needs a full 40-character commit");
         ModAnalysis a = Analyzer.analyze(jar, mappings);
         SourceMatch idx = null;
@@ -169,7 +177,7 @@ public final class Main {
             a = Analyzer.analyze(jar, mappings);
         }
         Path dir = out != null ? out : Path.of("out", a.modId() + "-horizon");
-        String summary = Generator.generate(a, mappings, idx, js, revision, dir);
+        String summary = Generator.generate(a, mappings, idx, js, revision, dir, jar, install).summary();
         Report.write(a, dir.resolve("report"));
         System.out.println(a.name() + " " + a.version() + ": " + summary);
         if (horizonSrc != null) System.out.println("Took " + accepted + " high-confidence matches from " + horizonSrc);
@@ -252,6 +260,13 @@ public final class Main {
                   port <mod.jar> --horizon-src FOLDER [--horizon-revision SHA] [--i-am-the-author NAME] [--out DIR]
                       decompile, then generate with that source: the Horizon bundle, each helper
                       holding the decompiled Java it stands in for, the licence's terms in PORTING.md.
+
+                generate and port also say whether the result is a full port: nothing commented out,
+                no TODO, every Java method translated, nothing a content mod must carry. A full port is
+                also packed as <bundle>/<mod id>.hnmod, Horizon's native-mod file. With --install
+                (or --install-to GAME_FOLDER) a full port is put into Horizon's horizon-native-mods/
+                folder and turned on; the launcher then compiles it. The Horizon commit comes from
+                --horizon-revision, else the source's .horizon-revision file.
 
                 The base table, mappings/horizon-mappings.json, is always loaded first; each
                 --mappings file is laid on top of it.""");

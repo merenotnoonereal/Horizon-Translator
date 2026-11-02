@@ -31,7 +31,7 @@
       <h1>Bring your mods and shaders to Horizon</h1>
       <p class="lead">
         Convert <strong>Iris / OptiFine shader packs</strong> right here in your browser, and <strong>Fabric mods</strong>
-        with the free Windows app. The translator rewrites them for <a href="https://github.com/horizon-rust/horizon" rel="noopener">Horizon</a>,
+        with the free desktop app for Windows and Linux. The translator rewrites them for <a href="https://github.com/horizon-rust/horizon" rel="noopener">Horizon</a>,
         the Rust rewrite of Minecraft Java.
       </p>
       <p id="server-status" class="status-line" aria-live="polite">Checking your browser…</p>
@@ -53,28 +53,62 @@
         <div class="download">
           <img src="logo.png" alt="" width="64" height="64">
           <div>
-            <h3>Horizon Translator for Windows</h3>
+            <h3>Horizon Translator for Windows and Linux</h3>
             <p>Mods are converted by a free desktop app, so everything runs on your own PC and nothing is uploaded.
             It has the same menu as this site and converts shader packs too.</p>
             <a class="go" id="download-app" href="#">Download for Windows (.exe)</a>
-            <p class="small-print">Windows 10/11 · about 45 MB · Java is included, nothing else to install</p>
+            <a class="ghost" id="download-linux" href="#">Download for Linux (.tar.gz)</a>
+            <p class="small-print">Windows 10/11 or 64-bit Linux · about 45 MB · Java is included, nothing else to install</p>
           </div>
         </div>
         <div class="steps">
           <h4>How to use it</h4>
           <ol>
-            <li>Run <code>HorizonTranslator-Setup.exe</code>. The installer isn't code-signed, so Windows may show
+            <li><strong>Windows:</strong> run <code>HorizonTranslator-Setup.exe</code>. The installer isn't code-signed, so Windows may show
               <em>"Windows protected your PC"</em>: click <strong>More info</strong> → <strong>Run anyway</strong>.
-              Only do this with the file from this site or the project's GitHub Releases page.</li>
+              Only do this with the file from this site or the project's GitHub Releases page.
+              If Defender calls it a trojan, see <a href="#verify-app" class="open-verify">how to check the file</a> below.
+              <br><strong>Linux:</strong> unpack it (<code>tar -xzf HorizonTranslator-linux-x64.tar.gz</code>) and run
+              <code>HorizonTranslator/bin/HorizonTranslator</code>. <code>install-menu-entry.sh</code> in that folder adds it to your app menu.</li>
             <li>Open <strong>Horizon Translator</strong>, pick the <strong>Mods</strong> tab and drop in a Fabric mod <code>.jar</code>.</li>
-            <li>Press <strong>Convert mod</strong>. The result is saved in <code>Documents\Horizon Translator</code>.</li>
-            <li>Read <code>PORTING.md</code>, then build it into Horizon:
+            <li>Press <strong>Convert mod</strong>. The result is saved in <code>Documents/Horizon Translator</code>.</li>
+            <li>If the mod converted <em>fully</em> (rare), you get <code>&lt;modid&gt;.hnmod</code> and the app adds it to Horizon:
+              press <strong>Build</strong> on the launcher's Mods page. Otherwise read <code>PORTING.md</code> for what's left, then build it with
               <code>horizon-launcher native-build &lt;folder&gt;/mixins/&lt;modid&gt; --trust-native-code</code>.
               Only build mods you trust: native mods have full access to your computer.</li>
           </ol>
           <p class="hint">The app only decompiles mods whose licence allows it (MIT, Apache, GPL, LGPL, MPL, OSL and similar).
           <em>All Rights Reserved</em> mods are only converted for their author ("I made this mod").</p>
         </div>
+        <details class="verify" id="verify-app">
+          <summary>Windows Defender says it's a trojan?</summary>
+          <p>Some versions of Microsoft Defender flag the installer as <code>Trojan:Win32/Wacatac.B!ml</code>.
+          The <code>!ml</code> means a machine-learning model guessed, not that known malware was found. It often
+          guesses this for new installers that aren't code-signed and haven't been downloaded much yet.
+          On VirusTotal, Microsoft was the only one of about 70 antivirus engines to flag the 1.0.0 installer;
+          the others found nothing.</p>
+          <p>Don't take our word for it. You can check the file yourself without trusting this website:</p>
+          <ol>
+            <li><strong>Get the official fingerprint from GitHub.</strong> GitHub calculates a SHA-256 hash of every
+              file attached to a release and shows it next to the file on the
+              <a class="repo-releases" href="#">Releases page</a>. This website can't change that number.
+              <span class="verify-live" hidden>For the latest release (<span class="verify-tag"></span>) GitHub reports:
+              <code class="verify-hash"></code></span></li>
+            <li><strong>Hash the file you downloaded.</strong> Open PowerShell in your Downloads folder and run
+              <pre><code>Get-FileHash .\HorizonTranslator-Setup.exe -Algorithm SHA256</code></pre>
+              (or <code>certutil -hashfile HorizonTranslator-Setup.exe SHA256</code> in Command Prompt).
+              If it matches GitHub's hash, your file is exactly the one that was published.</li>
+            <li><strong>Scan it with about 70 antivirus engines.</strong> Upload the file to
+              <a href="https://www.virustotal.com/" rel="noopener">VirusTotal</a> or search for the hash there<span class="verify-vt" hidden>
+              (<a class="verify-vt-link" href="#" rel="noopener">results for the latest release</a>)</span>.
+              Check how many engines flag it and what names they use.</li>
+            <li><strong>Read the code.</strong> All of the app's source code is on <a class="repo-link" href="#">GitHub</a>
+              (the app itself is in <code>desktop/src</code>), along with the script that builds the installer
+              (<code>scripts/build-desktop.sh</code>), so anyone can review it or build it themselves.</li>
+          </ol>
+          <p class="hint">Only trust a hash you got from GitHub itself. If your file's hash doesn't match, delete it
+          and download it again from the Releases page.</p>
+        </details>
         <p class="agree">By downloading you agree to the <a href="terms.html">Terms of Use</a>: only convert files you're allowed to modify.</p>
       </div>
 

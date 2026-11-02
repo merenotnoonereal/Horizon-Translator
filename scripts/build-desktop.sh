@@ -6,6 +6,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 HORIZON_SRC="${HORIZON_SRC:-horizon-src}"
+# The app's version: shown in the app, compared with GitHub's latest release tag, and the installer's version.
+# Tag the GitHub release with the same number (e.g. 1.0.2 or v1.0.2).
+export APP_VERSION="${APP_VERSION:-1.0.2}"
 [ -f "$HORIZON_SRC/Cargo.toml" ] || bash scripts/get-horizon.sh
 # Build folder: keep it out of OneDrive/Dropbox folders, which lock files while syncing.
 B="${BUILD_DIR:-desktop/build}"
@@ -21,6 +24,7 @@ if [ -z "${SHADERPORT_EXE:-}" ]; then
 fi
 echo "== app"
 javac --release 21 -nowarn -cp mod-converter/build/horizon-port.jar -d "$B/classes" desktop/src/horizonport/*.java
+echo "$APP_VERSION" > "$B/classes/horizonport/app-version.txt"
 JAR_TOOL="$(dirname "$(command -v javac)")/jar"
 "$JAR_TOOL" --create --file "$B/input/horizon-translator-app.jar" --main-class horizonport.TranslatorApp -C "$B/classes" .
 cp mod-converter/build/horizon-port.jar mod-converter/tools/vineflower-*.jar "$B/input/"
@@ -33,7 +37,8 @@ python desktop/make-ico.py web/public/logo.png "$B/logo.ico"
 echo "== app image (bundles Java)"
 jpackage --type app-image --dest "$B/app-image" --name "Horizon Translator" \
   --input "$B/input" --main-jar horizon-translator-app.jar --main-class horizonport.TranslatorApp \
-  --icon "$B/logo.ico" --app-version "${APP_VERSION:-1.0.0}" --vendor "Horizon Translator" \
+  --icon "$B/logo.ico" --app-version "$APP_VERSION" --vendor "Horizon Translator (community project)" \
+  --copyright "Copyright (C) 2026 Horizon Translator contributors" \
   --description "Converts Fabric mods and shader packs for Horizon" \
   --add-modules java.base,java.desktop,jdk.zipfs \
   --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=zip-9"

@@ -2,7 +2,7 @@
 ; Installs for the current user only, so it needs no administrator rights.
 #define AppVersion GetEnv("APP_VERSION")
 #if AppVersion == ""
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.0.2"
 #endif
 
 #ifndef BuildDir
@@ -18,6 +18,18 @@ AppName=Horizon Translator
 AppVersion={#AppVersion}
 AppPublisher=Horizon Translator (community project)
 AppPublisherURL=https://github.com/merenotnoonereal/Horizon-Translator
+AppSupportURL=https://github.com/merenotnoonereal/Horizon-Translator/issues
+AppUpdatesURL=https://github.com/merenotnoonereal/Horizon-Translator/releases
+AppCopyright=Copyright (C) 2026 Horizon Translator contributors
+; File details shown in Properties > Details. Installers with these left blank look more suspicious to antivirus.
+VersionInfoVersion={#AppVersion}
+VersionInfoProductVersion={#AppVersion}
+VersionInfoProductName=Horizon Translator
+VersionInfoProductTextVersion={#AppVersion}
+VersionInfoCompany=Horizon Translator (community project)
+VersionInfoDescription=Horizon Translator Setup
+VersionInfoCopyright=Copyright (C) 2026 Horizon Translator contributors
+VersionInfoOriginalFileName=HorizonTranslator-Setup.exe
 DefaultDirName={localappdata}\Programs\Horizon Translator
 DefaultGroupName=Horizon Translator
 PrivilegesRequired=lowest
