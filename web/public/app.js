@@ -14,6 +14,30 @@ for (const a of document.querySelectorAll(".repo-ideas")) a.href = REPO_URL + "/
 // The Windows app: the newest HorizonTranslator-Setup.exe attached to a GitHub Release.
 const APP_DOWNLOAD = REPO_URL + "/releases/latest/download/HorizonTranslator-Setup.exe";
 for (const a of document.querySelectorAll("#download-app")) a.href = APP_DOWNLOAD;
+// The Linux app: the newest HorizonTranslator-linux-x64.tar.gz on the same release.
+for (const a of document.querySelectorAll("#download-linux")) a.href = REPO_URL + "/releases/latest/download/HorizonTranslator-linux-x64.tar.gz";
+for (const a of document.querySelectorAll(".repo-releases")) a.href = REPO_URL + "/releases";
+for (const a of document.querySelectorAll(".open-verify")) a.addEventListener("click", () => { $("#verify-app").open = true; });
+
+// "Check the file yourself": show the SHA-256 that GitHub itself computed for the latest installer,
+// plus its VirusTotal page. If GitHub can't be reached, the static instructions still work.
+(async () => {
+  try {
+    const api = REPO_URL.replace("https://github.com/", "https://api.github.com/repos/") + "/releases/latest";
+    const res = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
+    if (!res.ok) return;
+    const rel = await res.json();
+    const asset = (rel.assets || []).find(a => a.name === "HorizonTranslator-Setup.exe");
+    const m = /^sha256:([0-9a-f]{64})$/.exec(asset?.digest || "");
+    if (!m) return;
+    const box = $("#verify-app");
+    $(".verify-tag", box).textContent = rel.tag_name || "latest";
+    $(".verify-hash", box).textContent = m[1].toUpperCase();
+    $(".verify-vt-link", box).href = "https://www.virustotal.com/gui/file/" + m[1];
+    $(".verify-live", box).hidden = false;
+    $(".verify-vt", box).hidden = false;
+  } catch {}
+})();
 
 // A new GitHub issue with the result's details filled in (the log is cut so the link stays short enough).
 function issueLink(kind, name, d) {
@@ -87,7 +111,7 @@ function dot(on) {
 $("#server-status").innerHTML = (BROWSER_OK
   ? dot(true) + "Shader packs convert in your browser"
   : dot(false) + "Your browser can't run the shader converter (it needs WebAssembly). Try a current Chrome, Edge, Firefox or Safari")
-  + " &nbsp;·&nbsp; " + dot(true) + "Mods convert in the Windows app &nbsp;·&nbsp; your files are never uploaded.";
+  + " &nbsp;·&nbsp; " + dot(true) + "Mods convert in the desktop app &nbsp;·&nbsp; your files are never uploaded.";
 
 // ---- converting
 for (const btn of document.querySelectorAll(".go[data-kind]")) {

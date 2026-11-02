@@ -33,8 +33,6 @@ import java.util.stream.Stream;
 public final class TranslatorApp {
     static final String REPO_URL = "https://github.com/merenotnoonereal/Horizon-Translator";
     static final String SITE_TERMS = REPO_URL + "/blob/main/web/public/terms.html";
-    /** The GitHub Pages website (Support reads its donate.json). */
-    static final String SITE_URL = "https://merenotnoonereal.github.io/Horizon-Translator/";
 
     // Colours from the website (light theme).
     static final Color BG = new Color(0xf6f7f4), SURFACE = Color.WHITE, SURFACE2 = new Color(0xeef1ec),
@@ -49,7 +47,7 @@ public final class TranslatorApp {
     JFrame frame;
     JTabbedPane tabs;
     JLabel modChosen, packChosen, status, outLabel, resultTitle;
-    JCheckBox isAuthor, install;
+    JCheckBox isAuthor, install, installMod;
     JTextField authorName;
     JButton convertMod, convertPack, openResult;
     JProgressBar progress;
@@ -65,6 +63,14 @@ public final class TranslatorApp {
 
     public static void main(String[] args) throws Exception {
         Path appDir = appDir();
+        if (args.length >= 1 && args[0].equals("--check-update")) {
+            String have = Updates.current();
+            Updates.Release r = Updates.latest();
+            System.out.println("this app: " + (have == null ? "(no version: run from source)" : have));
+            System.out.println("on GitHub: " + (r == null ? "(couldn't check)" : r.version() + "  " + r.page()));
+            System.out.println("newer one available: " + (r != null && have != null && Updates.newer(r.version(), have)));
+            System.exit(0);
+        }
         if (args.length >= 4 && args[0].equals("--selftest")) {
             System.exit(selfTest(appDir, Path.of(args[1]), Path.of(args[2]), Path.of(args[3])));
         }
@@ -101,9 +107,12 @@ public final class TranslatorApp {
 
         JPanel body = new FitWidth();
         body.setBorder(new EmptyBorder(16, 20, 20, 20));
+        JPanel update = updateBanner();
+        body.add(update);
         body.add(notice("Experimental: don't expect a finished mod.",
                 "The mod converter is a helper, not a one-click port. Most mods come out only partly working: anything "
-                        + "built on Minecraft features Horizon doesn't have yet is switched off and listed in PORTING.md for you to finish."));
+                        + "built on Minecraft features Horizon doesn't have yet is switched off and listed in PORTING.md for you to finish. "
+                        + "Only a mod that converts fully comes out as a ready-to-install .hnmod file."));
         body.add(Box.createVerticalStrut(12));
 
         tabs = new JTabbedPane() { // as tall as the open tab, not the tallest one
@@ -167,7 +176,15 @@ public final class TranslatorApp {
             if (logo != null) title.setIcon(new ImageIcon(logo.getScaledInstance(28, 28, Image.SCALE_SMOOTH)));
             title.setIconTextGap(10);
         } catch (IOException ignored) {}
-        h.add(title, BorderLayout.WEST);
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        left.setOpaque(false);
+        left.add(title);
+        String version = Updates.current();
+        if (version != null) {
+            left.add(Box.createHorizontalStrut(10));
+            left.add(label(version, MUTED, 12f, false));
+        }
+        h.add(left, BorderLayout.WEST);
         JPanel links = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
         links.setOpaque(false);
         links.add(link("How it works", REPO_URL + "/blob/main/docs/HOW-IT-WORKS.md"));
@@ -206,6 +223,11 @@ public final class TranslatorApp {
         nameRow.setVisible(false);
         isAuthor.addActionListener(e -> { nameRow.setVisible(isAuthor.isSelected()); p.revalidate(); });
         p.add(nameRow);
+        installMod = new JCheckBox("If it converts fully, add the .hnmod to Horizon (the launcher then builds it)");
+        installMod.setOpaque(false);
+        installMod.setSelected(true);
+        installMod.setAlignmentX(0);
+        p.add(installMod);
         p.add(Box.createVerticalStrut(12));
         convertMod = primary("Convert mod");
         convertMod.setEnabled(false);
@@ -320,8 +342,9 @@ public final class TranslatorApp {
         String author = isAuthor.isSelected() ? authorName.getText().strip() : "";
         if (isAuthor.isSelected() && author.isEmpty()) { authorName.requestFocus(); return; }
         Path jar = modFile.toPath();
+        boolean inst = installMod.isSelected();
         run("Converting " + jar.getFileName() + "… (checking the licence, decompiling, translating to Rust)",
-                () -> convertMod(appDir, jar, author, outDir));
+                () -> convertMod(appDir, jar, author, inst, outDir));
     }
 
     void convertPackClicked() {
@@ -372,8 +395,12 @@ public final class TranslatorApp {
         resultPanel.revalidate();
     }
 
-    /** horizon-port in its own process (with the Java this app ships), Vineflower in that process. */
-    static Result convertMod(Path appDir, Path jar, String author, Path outDir) throws Exception {
+    /**
+     * horizon-port in its own process (with the Java this app ships), Vineflower in that process. Gives the bundle
+     * folder; when the converter finds it's a full port, the <id>.hnmod in it (Horizon's native-mod file), which
+     * install also puts into Horizon's horizon-native-mods folder.
+     */
+    static Result convertMod(Path appDir, Path jar, String author, boolean install, Path outDir) throws Exception {
         Path work = Files.createTempDirectory("horizon-translator-");
         try {
             Path bundle = work.resolve("bundle");
@@ -382,6 +409,7 @@ public final class TranslatorApp {
                     "port", jar.toString(), "--horizon-src", appDir.resolve("horizon-src.zip").toString(),
                     "--mappings", appDir.resolve("mappings/horizon-mappings.json").toString(), "--out", bundle.toString()));
             if (!author.isEmpty()) { cmd.add("--i-am-the-author"); cmd.add(author); }
+            if (install) cmd.add("--install");
             Proc p = exec(cmd, work, 10);
             if (p.code() == 3) return new Result(false, "Not converted: the mod's licence doesn't allow it", p.out(), p.out(), null);
             if (p.code() != 0 || !Files.isDirectory(bundle))
@@ -390,10 +418,17 @@ public final class TranslatorApp {
             Files.createDirectories(outDir);
             Path dest = unique(outDir.resolve(id + "-horizon"));
             moveTree(bundle, dest);
-            String summary = p.out().lines().filter(l -> l.contains("injections")).findFirst().orElse("Converted").strip();
             String rep = read(dest.resolve("PORTING.md"));
             String tr = read(dest.resolve("report/translation.md"));
-            return new Result(true, summary, rep + (tr.isEmpty() ? "" : "\n\n" + tr), p.out(), dest);
+            String report = rep + (tr.isEmpty() ? "" : "\n\n" + tr);
+            Path hnmod = dest.resolve(id + ".hnmod");
+            if (Files.isRegularFile(hnmod)) {
+                boolean added = p.out().contains("installed as ");
+                return new Result(true, "Full port: " + hnmod.getFileName() + " is ready"
+                        + (added ? "  ·  added to Horizon: build it in the launcher (Mods > Build)" : "  ·  the report says how to install it"),
+                        report, p.out(), hnmod);
+            }
+            return new Result(true, "Not a full port, so no .hnmod was made: the report lists what's left", report, p.out(), dest);
         } finally {
             deleteTree(work); // includes the decompiled Java
         }
@@ -417,7 +452,7 @@ public final class TranslatorApp {
     }
 
     static int selfTest(Path appDir, Path jar, Path pack, Path out) throws Exception {
-        Result m = convertMod(appDir, jar, "", out);
+        Result m = convertMod(appDir, jar, "", false, out);
         System.out.println("mod: " + m.ok() + " | " + m.title() + " | " + m.where());
         Result s = convertPack(appDir, pack, false, out);
         System.out.println("shader: " + s.ok() + " | " + s.title() + " | " + s.where());
@@ -503,6 +538,37 @@ public final class TranslatorApp {
     }
 
     /** The scrolling page: always as wide as the window, scrolls only up and down. */
+    /**
+     * An HTML label that wraps to the width it's given, whatever the screen's font scale (a fixed CSS width came out
+     * too wide on Linux). Its height follows its width.
+     */
+    static final class WrapLabel extends JLabel {
+        private int laidOutWidth = -1;
+
+        WrapLabel(String html) {
+            super(html);
+            addComponentListener(new java.awt.event.ComponentAdapter() {
+                @Override public void componentResized(java.awt.event.ComponentEvent e) {
+                    if (getWidth() != laidOutWidth) { laidOutWidth = getWidth(); revalidate(); }
+                }
+            });
+        }
+
+        @Override public Dimension getPreferredSize() {
+            javax.swing.text.View v = (javax.swing.text.View) getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey);
+            if (v == null) return super.getPreferredSize();
+            Insets in = getInsets();
+            int w = getWidth() > 0 ? getWidth() : 640; // before the first layout: a guess
+            v.setSize(Math.max(80, w - in.left - in.right), 0);
+            int h = (int) Math.ceil(v.getPreferredSpan(javax.swing.text.View.Y_AXIS));
+            return new Dimension(w, h + in.top + in.bottom);
+        }
+
+        @Override public Dimension getMinimumSize() { return new Dimension(80, getPreferredSize().height); }
+
+        @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+    }
+
     static final class FitWidth extends JPanel implements Scrollable {
         FitWidth() { setLayout(new BoxLayout(this, BoxLayout.Y_AXIS)); setOpaque(false); }
         @Override public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
@@ -540,22 +606,62 @@ public final class TranslatorApp {
     }
 
     static JComponent wrapLabel(String text, Color color) {
-        JLabel l = new JLabel("<html><div style='width:620px'>" + escape(text) + "</div></html>");
+        JLabel l = new WrapLabel("<html>" + escape(text) + "</html>");
         l.setForeground(color);
         l.setFont(l.getFont().deriveFont(13f));
         l.setAlignmentX(0);
         return l;
     }
 
+    /**
+     * Hidden until GitHub has a newer release than this app (checked once, in the background, at start): then a
+     * green bar with the new version and a button to its release page. Nothing is downloaded by the app.
+     */
+    JPanel updateBanner() {
+        JPanel bar = new JPanel(new BorderLayout(12, 0)) { // as tall as its wrapped text needs
+            @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+        };
+        bar.setBackground(ACCENT_SOFT);
+        bar.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 4, 0, 0, ACCENT), new EmptyBorder(10, 12, 10, 12)));
+        bar.setAlignmentX(0);
+        bar.setVisible(false);
+        JLabel text = new WrapLabel(" ");
+        text.setForeground(TEXT);
+        text.setFont(text.getFont().deriveFont(13f));
+        bar.add(text, BorderLayout.CENTER);
+        JButton get = primary("Get the update");
+        bar.add(get, BorderLayout.EAST);
+        String have = Updates.current();
+        if (have == null) return bar; // run from source: nothing to compare with
+        Thread t = new Thread(() -> {
+            Updates.Release r = Updates.latest();
+            if (r == null || !Updates.newer(r.version(), have)) return;
+            SwingUtilities.invokeLater(() -> {
+                text.setText("<html><b>A newer version is out: " + escape(r.version()) + "</b> (you have " + escape(have)
+                        + "). Download the new installer from GitHub and run it; your converted files stay.</html>");
+                get.addActionListener(e -> browse(r.page()));
+                bar.setVisible(true);
+                Container parent = bar.getParent();
+                if (parent != null) {
+                    parent.add(Box.createVerticalStrut(12), parent.getComponentZOrder(bar) + 1);
+                    parent.revalidate();
+                    parent.repaint();
+                }
+            });
+        }, "update-check");
+        t.setDaemon(true);
+        t.start();
+        return bar;
+    }
+
     static JComponent notice(String title, String text) {
-        JLabel l = new JLabel("<html><div style='width:640px'><b>" + escape(title) + "</b><br>" + escape(text) + "</div></html>");
+        JLabel l = new WrapLabel("<html><b>" + escape(title) + "</b><br>" + escape(text) + "</html>");
         l.setForeground(TEXT);
         l.setFont(l.getFont().deriveFont(13f));
         l.setOpaque(true);
         l.setBackground(WARN_SOFT);
         l.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 4, 0, 0, WARN), new EmptyBorder(10, 12, 10, 12)));
         l.setAlignmentX(0);
-        l.setMaximumSize(new Dimension(Integer.MAX_VALUE, l.getPreferredSize().height));
         return l;
     }
 
@@ -658,15 +764,34 @@ public final class TranslatorApp {
     }
 
     static void browse(String url) {
-        try { Desktop.getDesktop().browse(URI.create(url)); } catch (Exception ignored) {}
+        try {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                Desktop.getDesktop().browse(URI.create(url));
+                return;
+            }
+        } catch (Exception ignored) {}
+        xdgOpen(url);
     }
 
     static void openFolder(Path p) {
         try {
             Path dir = Files.isDirectory(p) ? p : p.getParent();
             Files.createDirectories(dir);
-            Desktop.getDesktop().open(dir.toFile());
+            try {
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                    Desktop.getDesktop().open(dir.toFile());
+                    return;
+                }
+            } catch (Exception ignored) {}
+            xdgOpen(dir.toString());
         } catch (Exception ignored) {}
+    }
+
+    /** Linux desktops where Java's Desktop API isn't available (no GNOME libraries): the desktop's own opener. */
+    static void xdgOpen(String what) {
+        if (File.separatorChar == '\\') return;
+        try { new ProcessBuilder("xdg-open", what).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start(); }
+        catch (IOException ignored) {}
     }
 
     static String escape(String s) { return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"); }

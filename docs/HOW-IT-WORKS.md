@@ -112,6 +112,15 @@ why, and the licence result.
 Building a bundle into the game runs native code, so that step is always done by you, with
 `horizon-launcher native-build … --trust-native-code`.
 
+### 7. Full port? The `.hnmod`
+
+`NativePackage.java` then decides whether the bundle is a full port: no mixin commented out, no `TODO` in
+the code, every Java method translated, and nothing a content mod must carry. Only then does it pack
+`<mod id>.hnmod`, Horizon's file for a native mod (a zip of `horizon-native.json` and `mixins/<id>/`, the
+format `horizon_mods::index::native` reads). The app (or `--install`) puts it in
+`%APPDATA%\horizon\horizon-native-mods` and turns it on in `horizon-mods.txt`. The launcher compiles it
+on the next **Build**. A partial port gets no `.hnmod`, and `PORTING.md` says what's left.
+
 ## Shader converter (horizon-shaderport)
 
 ```mermaid
@@ -202,15 +211,21 @@ starts the converter as its own process with the Java the app ships:
 
 ```
 java -Dhorizonport.inprocess=true -Dhorizonport.srcdir=<temp> -cp horizon-port.jar;vineflower.jar
-     horizonport.Main port mod.jar --horizon-src horizon-src.zip --out <temp>/bundle [--i-am-the-author NAME]
+     horizonport.Main port mod.jar --horizon-src horizon-src.zip --out <temp>/bundle [--i-am-the-author NAME] [--install]
 ```
 
 `horizonport.inprocess` runs Vineflower inside that process (through its API) instead of starting yet
 another Java; `horizonport.srcdir` puts the decompiled Java in a temporary folder that the app deletes
 when the conversion ends. `--horizon-src` accepts a zip of Horizon's source and reads it in place. The
-finished bundle is moved to the output folder (`Documents\Horizon Translator` by default). Shader packs go
+finished bundle is moved to the output folder (`Documents\Horizon Translator` by default). For a full port
+the result is the `<mod id>.hnmod` in it, and `--install` (the "add the .hnmod to Horizon" box) has already
+put a copy into Horizon. `horizon-src.zip` holds `.horizon-revision`, the commit the `.hnmod` names. Shader packs go
 through `horizon-shaderport.exe port PACK --out FOLDER [--install]`. Each conversion has a time limit
 (10 minutes for mods, 20 for packs).
+
+At start the app checks for a newer version (`Updates.java`): one request to GitHub's
+`/repos/…/releases/latest`, and if that tag is a higher number than the version `build-desktop.sh` wrote into the
+app, it shows a bar linking to the release page. Run `TranslatorApp --check-update` to see what it finds.
 
 The Support me tab (`Support.java`) reads the `donate.json` the app ships, then the published site's copy
 when the tab is first opened. Its QR codes come from `Qr.java`, a small encoder (byte mode, error

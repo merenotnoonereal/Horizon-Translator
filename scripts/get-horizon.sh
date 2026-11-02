@@ -28,4 +28,6 @@ TOP="$(find "$TMP/x" -mindepth 1 -maxdepth 1 -type d | head -1)"
 [ -f "$TOP/Cargo.toml" ] || { echo "That archive doesn't look like Horizon's source." >&2; exit 1; }
 rm -rf "$DEST"
 mv "$TOP" "$DEST"
+# The commit, as Horizon's own source archives carry it: the mod converter names it in the .hnmod files it makes.
+[ -f "$DEST/.horizon-revision" ] || [ $# -ge 1 ] || echo "$REV" > "$DEST/.horizon-revision"
 echo "Horizon source ready in $DEST"

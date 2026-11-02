@@ -93,7 +93,7 @@ expect "$J/tick.rs" '// | private void sneakhud$onTick(CallbackInfo ci) {}'
 expect "$J/hud.rs" 'graphics.drawString(mc.font, "Sneaking", 4, 4, 0xFFFFFF);'
 expect "$J/local-player-mixin-before-sprint.rs" '// | @Inject(method = "aiStep", at = @At(value = "INVOKE"'
 expect "$J/runtime.rs" '["toggle", "Toggle", "key.keyboard.h"],'
-expect "$J/key.rs" 'game.native_mod_key(m::ID, "toggle", "key.keyboard.h")'
+expect "$J/game_side.rs" 'const KEY_NAMES: [(&str, &str); 1] = [("toggle", "key.keyboard.h"), ];'
 
 expect "$B/genj/todo/mouse-handler-mixin-scroll.rs" '// | private boolean sneakhud$scroll(Object player) {'
 expect "$J/runtime.rs" 'pub mod java {'
@@ -127,6 +127,56 @@ expect "$B/arr/no.log" 'pass --i-am-the-author with your name as the jar lists i
 if run decompile "$B/arr/sneakhud-arr.jar" --i-am-the-author someone-else --out "$B/arr/src" > "$B/arr/wrong.log"; then echo "  FAIL: a wrong author was accepted"; fail=1; else echo "  ok: wrong author refused"; fi
 run decompile "$B/arr/sneakhud-arr.jar" --i-am-the-author MereNotNoOne --out "$B/arr/src" > "$B/arr/yes.log" && echo "  ok: author accepted" || { echo "  FAIL: author refused"; fail=1; }
 expect "$B/arr/src/LICENSE-CHECK.md" 'you stated you are merenotnoone'
+
+echo; echo "== full port or not (.hnmod)"
+# Sneak HUD keeps TODOs, a commented-out mixin, a block and data: not a full port, so no .hnmod.
+expect "$B/gen/PORTING.md" "**No: this isn't a full port**"
+expect "$B/gen/PORTING.md" '1 mixins are written commented out'
+expect "$B/gen/PORTING.md" 'data files (recipes, loot, tags, worldgen…) need a content mod (.hmod)'
+[ ! -e "$B/gen/sneakhud.hnmod" ] && echo "  ok: no .hnmod for a partial port" || { echo "  FAIL: a partial port got a .hnmod"; fail=1; }
+# Tally: an initializer and plain logic, nothing else: a full port.
+TL="$B/tally"
+mkdir -p "$TL/src/com/example/tally" "$TL/res" "$TL/cls" "$TL/hsrc/launcher/src"
+cp -r $F/horizon-src/. "$TL/hsrc/"
+printf 'pub const MIXINS_REV: &str = "3f99a5c60dfa311cc365524c44ae2fd799bfa1de";\n' > "$TL/hsrc/launcher/src/native_mods.rs"
+echo a46ce6898bd72016e061aaec1afc1375b384deac > "$TL/hsrc/.horizon-revision"
+cat > "$TL/src/com/example/tally/Tally.java" <<'EOF'
+package com.example.tally;
+import net.fabricmc.api.ClientModInitializer;
+public class Tally implements ClientModInitializer {
+    static int total;
+    public void onInitializeClient() { total = Maths.sum(new int[] {1, 2, 3}); }
+}
+EOF
+cat > "$TL/src/com/example/tally/Maths.java" <<'EOF'
+package com.example.tally;
+public final class Maths {
+    private Maths() {}
+    public static int sum(int[] xs) { int t = 0; for (int x : xs) t += x; return t; }
+}
+EOF
+cat > "$TL/res/fabric.mod.json" <<'EOF'
+{ "schemaVersion": 1, "id": "tally", "version": "1.0.0", "name": "Tally", "license": "MIT",
+  "authors": ["someone"], "entrypoints": { "client": ["com.example.tally.Tally"] } }
+EOF
+mkdir -p "$TL/res/assets/tally/lang" && echo '{}' > "$TL/res/assets/tally/lang/en_us.json"
+javac --release 21 -cp "$B/stubs" -d "$TL/cls" $(find "$TL/src" -name '*.java')
+"$JAR" --create --file "$TL/tally.jar" -C "$TL/cls" . -C "$TL/res" .
+java -Dhorizonport.srcdir="$TL/dec" -jar build/horizon-port.jar port "$TL/tally.jar" --mappings test/fixture-mappings.json \
+  --horizon-src "$TL/hsrc" --out "$TL/out" --install-to "$TL/game" > "$TL/port.log"
+expect "$TL/port.log" 'FULL PORT: tally.hnmod is ready to install'
+expect "$TL/out/PORTING.md" '**Yes: this is a full port.**'
+expect "$TL/out/mixins/tally/tick.rs" 'port_tally_game::ensure_init(game);'
+if grep -rq TODO "$TL/out/mixins/tally"; then echo "  FAIL: TODO in a full port"; fail=1; else echo "  ok: no TODO in the full port"; fi
+mkdir -p "$TL/unz" && ( cd "$TL/unz" && "$JAR" xf ../out/tally.hnmod )
+expect "$TL/unz/horizon-native.json" '"horizon": "a46ce6898bd72016e061aaec1afc1375b384deac"'
+expect "$TL/unz/horizon-native.json" '"mixins": "3f99a5c60dfa311cc365524c44ae2fd799bfa1de"'
+expect "$TL/unz/horizon-native.json" '"id": "tally"'
+expect "$TL/unz/mixins/tally/horizon-mixin.toml" 'horizon_revision = "a46ce6898bd72016e061aaec1afc1375b384deac"'
+extra=$(cd "$TL/unz" && find . -type f | grep -v '^./horizon-native.json$' | grep -Ev '^./mixins/tally/[^/]+\.(rs|toml)$' || true)
+[ -z "$extra" ] && echo "  ok: only Horizon's allowed files in the .hnmod" || { echo "  FAIL: unexpected files: $extra"; fail=1; }
+[ -f "$TL/game/horizon-native-mods/tally.hnmod" ] && echo "  ok: installed into horizon-native-mods" || { echo "  FAIL: not installed"; fail=1; }
+expect "$TL/game/horizon-mods.txt" 'mod.tally:true'
 
 echo; echo "== body checks"
 javac -cp build/classes -d "$B/test" test/BodyCheckTest.java

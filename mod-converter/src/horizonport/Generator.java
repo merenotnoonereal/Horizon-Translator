@@ -61,6 +61,10 @@ final class Generator {
     private final Set<String> ids = new HashSet<>();
     private int active, commented;
     private int hooksApi = 1;
+    /** Hook points that only run the translated code (initializer, game-thread queue, key state): nothing to port there. */
+    private final Set<String> glueHooks = new HashSet<>();
+    /** Hook points a mixin HEAD/RETURN hooks: the mixin's handler isn't translated, so they keep a TODO. */
+    private final Set<String> mixinHooks = new HashSet<>();
     private boolean rawTargets;
     /** The mod's own Java translated to Rust (with --java-src or port), or null. */
     private RustTranslator.Result translation;
@@ -84,6 +88,18 @@ final class Generator {
 
     /** Writes the bundle into dir and returns a one-line summary. */
     static String generate(ModAnalysis a, Mappings m, SourceMatch src, JavaSource java, String revision, Path dir) throws IOException {
+        return generate(a, m, src, java, revision, dir, null, null).summary();
+    }
+
+    /** summary: one line; pack: whether it's a full port, and its .hnmod if so. */
+    record Generated(String summary, NativePackage.Outcome pack) {}
+
+    /**
+     * Writes the bundle into dir, then, when nothing is left to finish, packs it as dir/<id>.hnmod (and puts that into
+     * the game folder `install`, when given). jar: the mod's jar, to see what a content mod would have to carry.
+     */
+    static Generated generate(ModAnalysis a, Mappings m, SourceMatch src, JavaSource java, String revision, Path dir, Path jar, Path install)
+            throws IOException {
         Generator g = new Generator(a, m, src, java, revision);
         g.build();
         // Regenerating: clear the folders this tool wrote last time (only where its PORTING.md says it did).
@@ -95,8 +111,55 @@ final class Generator {
             Files.createDirectories(p.getParent());
             Files.writeString(p, f.getValue(), StandardCharsets.UTF_8);
         }
-        return g.active + " injections on, " + g.commented + " written commented out for a person to finish"
-                + (java != null ? ", " + g.javaCopied + " pieces of original Java copied in" : "");
+        // Only a bundle on hook points alone may build on newer commits; injections into Horizon's own functions and
+        // game_side.rs (which reads Game's fields) need exactly the commit they were made on.
+        Integer hooks = g.rawTargets || g.gameSide() ? null : g.hooksApi;
+        NativePackage.Outcome pack = NativePackage.write(dir, jar, g.id, g.cargoVersion(), "26.3", revision, g.mixinsRevision(), hooks, g.gaps());
+        String installed = "";
+        if (pack.full() && install != null) installed = ", installed as " + NativePackage.install(pack.file(), g.id, install);
+        Path porting = dir.resolve("PORTING.md");
+        Files.writeString(porting, Files.readString(porting) + readyDoc(g.id, pack));
+        return new Generated(g.active + " injections on, " + g.commented + " written commented out for a person to finish"
+                + (java != null ? ", " + g.javaCopied + " pieces of original Java copied in" : "")
+                + (pack.full() ? "; FULL PORT: " + pack.file().getFileName() + " is ready to install" + installed
+                        : "; not a full port (" + pack.gaps().size() + " things left, listed in PORTING.md)"), pack);
+    }
+
+    /** What keeps the bundle from being complete, as far as the generator knows (NativePackage adds TODOs and content). */
+    private List<String> gaps() {
+        List<String> out = new ArrayList<>();
+        if (commented > 0) out.add(commented + " mixins are written commented out (notes in `todo/`).");
+        if (translation == null) {
+            out.add("The mod's Java wasn't translated (use `port`, or `generate --java-src`).");
+        } else {
+            long left = translation.methods() - translation.translated() - translation.covered();
+            if (left > 0) out.add(left + " of " + translation.methods() + " Java methods aren't translated (see `report/translation.md`).");
+            long fields = translation.items().stream().filter(i -> i.what().equals("field") && !i.ok()).count();
+            if (fields > 0) out.add(fields + " static fields aren't translated (see `report/translation.md`).");
+        }
+        for (String[] r : porting) if (r[1].startsWith("not ") || r[1].startsWith("partly")) out.add(r[0] + ": " + r[1] + ".");
+        if (a.intermediary()) out.add("The jar uses intermediary names (a Minecraft version before 26.1).");
+        for (Feature f : a.features()) {
+            if (f.category().equals("mixin") && f.status().equals("needs-translation")) out.add(ClassFile.simpleName(f.source()) + ": " + f.detail() + ".");
+            if (f.category().equals("content") && f.detail().startsWith("registers")) out.add(ClassFile.simpleName(f.source()) + " " + f.detail() + ": that needs a content mod (.hmod).");
+        }
+        return out;
+    }
+
+    private static String readyDoc(String id, NativePackage.Outcome pack) {
+        StringBuilder b = new StringBuilder("\n## Ready to use?\n\n");
+        if (pack.full()) {
+            b.append("**Yes: this is a full port.** `").append(id).append(".hnmod` is Horizon's file for a native mod. To play it:\n\n")
+                    .append("1. Put it in `horizon-native-mods/` in Horizon's game folder (`%APPDATA%\\horizon` on Windows, `~/.local/share/horizon` on Linux) and add the line `mod.")
+                    .append(id).append(":true` to `horizon-mods.txt` there (the app's \"Add it to Horizon\" does both).\n")
+                    .append("2. In Horizon's launcher, turn on Settings > Game > Native mods and press **Build** on the Mods page, or run\n")
+                    .append("   `horizon-launcher native-build --trust-native-code`. The launcher compiles it into the game (the first build downloads Rust and takes 10 to 30 minutes).\n\n")
+                    .append("Native mods run with your rights and aren't sandboxed: build only code you trust.\n");
+        } else {
+            b.append("**No: this isn't a full port**, so no `.hnmod` was made. What's left:\n\n");
+            for (String g : pack.gaps()) b.append(g.startsWith("  ") ? "  - " + g.strip() : "- " + g).append('\n');
+        }
+        return b.toString();
     }
 
     private void build() throws IOException {
@@ -121,6 +184,7 @@ final class Generator {
                     + ClassFile.simpleName(inj.targetClass()) + "." + inj.targetMethod() + " in "
                     + ClassFile.simpleName(inj.mixinClass()) + "." + inj.handler());
             hookClasses.computeIfAbsent(hook, k -> new LinkedHashSet<>()).add(inj.mixinClass());
+            mixinHooks.add(hook);
             addJava(hook, java == null ? null : java.method(inj.mixinClass(), inj.handler()));
         }
         for (Injection inj : a.injections()) {
@@ -129,11 +193,19 @@ final class Generator {
                     + ClassFile.simpleName(inj.mixinClass()) + "." + inj.handler() + ": joining a world, seen by the tick hook");
             hookClasses.computeIfAbsent("tick", k -> new LinkedHashSet<>()).add(inj.mixinClass());
         }
-        if (gameSide() && translation.game().contains("pub fn j_run_game_queue(") && !hookUses.containsKey("tick"))
+        if (gameSide() && translation.game().contains("pub fn j_run_game_queue(") && !hookUses.containsKey("tick")) {
             hookUses.put("tick", new ArrayList<>(List.of("Work the translated code hands to the game thread")));
+            glueHooks.add("tick");
+        }
         if (!keys.isEmpty()) hookUses.computeIfAbsent("key", k -> new ArrayList<>()).add("The mod's keys: " + keys.size() + " found");
         if (gameSide() && translation.game().contains("pub fn key_event(") && !hookUses.containsKey("key"))
             hookUses.put("key", new ArrayList<>(List.of("The translated code reads the mod's keys (consumeClick / isDown)")));
+        if (gameSide() && translation.game().contains("pub fn key_event(")) glueHooks.add("key");
+        // The initializer runs from the first hook that has the game (ensure_init): give it one when nothing else does.
+        if (gameSide() && translation.game().contains("pub fn on_init(") && hookUses.keySet().stream().noneMatch(this::hasGame)) {
+            hookUses.put("tick", new ArrayList<>(List.of("The mod's initializer, run once on the first tick")));
+            glueHooks.add("tick");
+        }
         boolean settings = config() != null || a.entrypoints().containsKey("modmenu")
                 || a.features().stream().anyMatch(f -> f.category().equals("class") && f.detail().endsWith("Screen"));
 
@@ -244,6 +316,12 @@ final class Generator {
         porting.add(new String[] {"hook `" + hook + "`", "on", String.join("; ", uses)});
     }
 
+    /** Whether the hook point hands its helper the game (so the initializer can run from it). */
+    private boolean hasGame(String hook) {
+        return m.hooks.get(hook) != null && m.hooks.get(hook).get("bindings") != null
+                && hookBindings(hook).stream().anyMatch(b -> b.name().equals("game"));
+    }
+
     private List<Binding> hookBindings(String hook) {
         List<Binding> out = new ArrayList<>();
         for (Object b : Json.list(m.hooks.get(hook).get("bindings"))) {
@@ -294,7 +372,7 @@ final class Generator {
                 else for (String l : h.left()) b.append("    // TODO (join handler): ").append(l).append('\n');
             }
         }
-        boolean done = (!hs.isEmpty() || joins) && hs.stream().allMatch(h -> h.ok() && h.left().isEmpty())
+        boolean done = (!hs.isEmpty() || joins || glueHooks.contains(hook)) && !mixinHooks.contains(hook) && hs.stream().allMatch(h -> h.ok() && h.left().isEmpty())
                 && (!hook.equals("tick") || handlers("join").stream().allMatch(h -> h.ok() && h.left().isEmpty()));
         switch (done ? "" : hook) {
             case "" -> {}

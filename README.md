@@ -5,6 +5,7 @@ Convert **Fabric mods** and **Iris / OptiFine shader packs** so they run in
 
 **[Open the website](https://merenotnoonereal.github.io/Horizon-Translator/)** ·
 **[Download the Windows app](https://github.com/merenotnoonereal/Horizon-Translator/releases/latest/download/HorizonTranslator-Setup.exe)** ·
+**[Linux app](https://github.com/merenotnoonereal/Horizon-Translator/releases/latest/download/HorizonTranslator-linux-x64.tar.gz)** ·
 [Report an issue](https://github.com/merenotnoonereal/Horizon-Translator/issues/new/choose)
 
 It comes as a **website** and a **Windows app**. Everything runs on the user's own computer: nothing is
@@ -13,7 +14,7 @@ ever uploaded, and there is no server to run or pay for.
 | | What it does | Where it runs |
 |---|---|---|
 | **Website** (`web/`) | converts shader packs; download page for the app | in the visitor's browser (WebAssembly), hosted free on GitHub Pages |
-| **Windows app** (`desktop/`) | converts mods and shader packs, same menu as the website | on the user's PC (Java included in the installer) |
+| **Desktop app** (`desktop/`) | converts mods and shader packs, same menu as the website; Windows installer and Linux `.tar.gz` | on the user's PC (Java included) |
 | **Mod converter** (`mod-converter/`, Java) | Fabric mod `.jar` → Horizon native-mod bundle (`horizon-mixin.toml` + Rust) | inside the app, or from the command line |
 | **Shader converter** (`shader-converter/`, Rust) | Iris/OptiFine pack `.zip` → pack Horizon loads (`<name>-horizon.zip`) | in the browser, inside the app, or from the command line |
 
@@ -59,31 +60,43 @@ ever uploaded, and there is no server to run or pay for.
    your browser; small packs take seconds, the biggest a few minutes.
 3. Download the result and read the report on the page.
 
-**Mods (and shader packs), in the Windows app:**
+**Mods (and shader packs), in the desktop app (Windows or Linux):**
 
 1. On the website's **Mods** tab, press **Download for Windows** and run `HorizonTranslator-Setup.exe`.
    The installer isn't code-signed, so Windows SmartScreen may say *"Windows protected your PC"*: click
    **More info → Run anyway** (only for the file from this project's website or GitHub Releases).
    It installs for your user only, with no administrator rights, and Java is included.
+   **On Linux**, press **Download for Linux**, unpack it (`tar -xzf HorizonTranslator-linux-x64.tar.gz`) and run
+   `HorizonTranslator/bin/HorizonTranslator` (`install-menu-entry.sh` adds it to your app menu). Java is included here too.
 2. Open **Horizon Translator**. It has the same Mods / Shader packs tabs as the website.
 3. Drop in a Fabric mod `.jar` and press **Convert mod**. If the mod is *All Rights Reserved* and you made
    it, tick **I made this mod** and type your name exactly as the mod's `fabric.mod.json` lists it.
 4. Results are saved in `Documents\Horizon Translator` (changeable). The report and the converter log
    show in the window; **Open result** opens the folder. For shader packs, *Also install it into Horizon's
    shaderpacks folder* copies the result straight into Horizon.
+5. When a newer version is on GitHub, a green bar at the top of the app says so, with a button to the
+   download page. (The app asks GitHub for the latest release when it starts. Nothing about you or your files
+   is sent.)
 
 **Installing a converted shader pack:** put the `…-horizon.zip` in Horizon's `shaderpacks` folder
 (`%APPDATA%\horizon\shaderpacks` on Windows) and choose it in *Options → Horizon Settings → Shader Packs*.
 
-**Installing a converted mod:** Horizon native mods are compiled into the game. Unzip the bundle, read
-`PORTING.md`, then build it with the Horizon launcher:
+**Installing a converted mod:** Horizon native mods are compiled into the game by Horizon's launcher.
 
-```bash
-horizon-launcher native-build path/to/<modid>-horizon/mixins/<modid> --trust-native-code
-```
+- **Full port** (rare: nothing left to finish). The result is `<modid>.hnmod`, Horizon's own file for a
+  native mod. With *If it converts fully, add the .hnmod to Horizon* ticked (the default), the app puts it in
+  `%APPDATA%\horizon\horizon-native-mods` and turns it on. Then, in the launcher, turn on
+  *Settings → Game → Native mods* and press **Build** on the Mods page (or run
+  `horizon-launcher native-build --trust-native-code`).
+- **Partial port** (most mods). There's no `.hnmod`, only the bundle folder. `PORTING.md` lists what's left.
+  Once you've finished it, build it with:
+
+  ```bash
+  horizon-launcher native-build path/to/<modid>-horizon/mixins/<modid> --trust-native-code
+  ```
 
 A native mod runs with full access to your computer, so only build code you trust. The converter never
-builds or runs anything; that step is always yours.
+compiles or runs a mod: the launcher does, when you press Build.
 
 ---
 

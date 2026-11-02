@@ -96,11 +96,19 @@ h2 { font-size: 1.5rem; margin: 0 0 16px; }
 .download h3 { margin: 0 0 6px; font-size: 1.2rem; }
 .download p { margin: 0 0 14px; color: var(--muted); }
 .download .small-print { font-size: .85rem; margin: 10px 0 0; }
+.download a.go, .download a.ghost { margin: 4px 8px 4px 0; }
 .steps { margin-top: 18px; }
 .steps h4 { margin: 0 0 8px; }
 .steps ol { padding-left: 20px; margin: 0 0 12px; display: grid; gap: 8px; font-size: .95rem; }
 @media (max-width: 560px) { .download { flex-direction: column; } }
 .hint { color: var(--muted); font-size: .93rem; margin: 0 0 12px; }
+.verify { margin-top: 6px; font-size: .95rem; }
+.verify > p { margin: 10px 0; }
+.verify ol { padding-left: 20px; margin: 0 0 12px; display: grid; gap: 10px; }
+.verify pre { margin: 6px 0; padding: 8px 10px; }
+.verify pre code { background: none; padding: 0; }
+.verify-live { display: block; margin-top: 6px; }
+.verify-hash { display: inline-block; margin-top: 4px; word-break: break-all; }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); }
 .author-row { margin-top: 12px; display: grid; gap: 6px; }

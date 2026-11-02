@@ -4,11 +4,6 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.awt.datatransfer.StringSelection;
-import java.awt.event.HierarchyEvent;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,13 +16,12 @@ import java.util.regex.Pattern;
 import static horizonport.TranslatorApp.*;
 
 /**
- * The "Support me" tab: crypto addresses with QR codes, from donate.json. The app ships a copy;
- * when the tab is first opened it also fetches the website's current donate.json, so addresses
- * changed on the site show up without a new installer. That is the only time the app goes online.
+ * The "Support me" tab: crypto addresses with QR codes, from the donate.json shipped with the app.
+ * The app never downloads addresses and never writes to the clipboard: viewers scan the QR code or
+ * select the address themselves. (Fetching wallet addresses at runtime and putting them on the
+ * clipboard is what "clipper" malware does, so antivirus heuristics treat it as suspicious.)
  */
 final class Support {
-    static final String LIVE_URL = SITE_URL + "donate.json";
-
     record Wallet(String name, String coins, String type, String networks, String address) {}
     record Link(String name, String url) {}
     record Info(String message, List<Wallet> wallets, List<Link> links) {
@@ -59,22 +53,6 @@ final class Support {
         }
     }
 
-    /** The website's current list, or null if it can't be reached. */
-    static Info live() {
-        try {
-            HttpURLConnection c = (HttpURLConnection) URI.create(LIVE_URL).toURL().openConnection();
-            c.setConnectTimeout(5000);
-            c.setReadTimeout(5000);
-            c.setRequestProperty("User-Agent", "HorizonTranslator");
-            if (c.getResponseCode() != 200) return null;
-            try (InputStream in = c.getInputStream()) {
-                return parse(new String(in.readNBytes(64 * 1024), StandardCharsets.UTF_8));
-            }
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     @SuppressWarnings("unchecked")
     static Info parse(String json) {
         Map<String, Object> root = (Map<String, Object>) new Json(json).value();
@@ -99,22 +77,7 @@ final class Support {
 
     static JComponent panel(Path appDir) {
         JPanel p = card();
-        Info[] shown = {bundled(appDir)};
-        fill(p, shown[0]);
-        boolean[] fetched = {false};
-        p.addHierarchyListener(e -> {
-            if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) == 0 || !p.isShowing() || fetched[0]) return;
-            fetched[0] = true;
-            new SwingWorker<Info, Void>() {
-                @Override protected Info doInBackground() { return live(); }
-                @Override protected void done() {
-                    try {
-                        Info i = get();
-                        if (i != null && !i.equals(shown[0])) { shown[0] = i; fill(p, i); }
-                    } catch (Exception ignored) {}
-                }
-            }.execute();
-        });
+        fill(p, bundled(appDir));
         return p;
     }
 
@@ -141,7 +104,7 @@ final class Support {
             p.add(grid);
             p.add(Box.createVerticalStrut(12));
             p.add(wrapLabel("Only send on the networks listed under each address. Crypto sent on another network or to a "
-                    + "mistyped address can't be got back. Scan the QR code or use Copy instead of typing an address.", MUTED));
+                    + "mistyped address can't be got back. Scan the QR code, or select the address and press Ctrl+C, instead of typing it.", MUTED));
         }
         if (!links.isEmpty()) {
             p.add(Box.createVerticalStrut(10));
@@ -180,6 +143,7 @@ final class Support {
 
         JTextArea addr = new JTextArea(w.address());
         addr.setEditable(false);
+        addr.setToolTipText("Select the address and press Ctrl+C to copy it");
         addr.setLineWrap(true);
         addr.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         addr.setColumns(26);
@@ -188,17 +152,7 @@ final class Support {
         addr.setBorder(new EmptyBorder(4, 6, 4, 6));
         addr.setMaximumSize(addr.getPreferredSize());
         c.add(addr);
-        c.add(Box.createVerticalStrut(8));
 
-        JButton copy = ghost("Copy address");
-        copy.addActionListener(e -> {
-            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(w.address()), null);
-            copy.setText("Copied");
-            Timer t = new Timer(2000, ev -> copy.setText("Copy address"));
-            t.setRepeats(false);
-            t.start();
-        });
-        c.add(copy);
         for (Component k : c.getComponents()) if (k instanceof JComponent j) j.setAlignmentX(0.5f);
         return c;
     }
