@@ -103,17 +103,17 @@ final class GetMods {
             b = fetch(SITE + m.file(), MAX_BYTES);
         } else {
             Path local = appDir.resolve("mods").resolve(m.file());
-            if (!Files.isRegularFile(local)) throw new IOException("The app has no copy of " + m.file() + ", and the website can't be reached.");
+            if (!Files.isRegularFile(local)) throw new IOException(I18n.t("getmods.error.no_copy", m.file()));
             b = Files.readAllBytes(local);
         }
         String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(b));
-        if (!sha.equals(m.sha256())) throw new IOException(m.file() + " isn't the file the list names (its SHA-256 differs). Nothing was installed.");
+        if (!sha.equals(m.sha256())) throw new IOException(I18n.t("getmods.error.sha_mismatch", m.file()));
         Path tmp = Files.createTempFile("horizon-mod-", ".hnmod");
         Files.write(tmp, b);
         String id = manifestValue(tmp, "id");
         if (!m.id().equals(id)) {
             Files.deleteIfExists(tmp);
-            throw new IOException(m.file() + " says it is \"" + id + "\", not " + m.id() + ". Nothing was installed.");
+            throw new IOException(I18n.t("getmods.error.id_mismatch", m.file(), id, m.id()));
         }
         return tmp;
     }
@@ -144,16 +144,17 @@ final class GetMods {
         JPanel p = card();
         JPanel list = column();
         JLabel status = label(" ", MUTED, 13f, false);
-        JButton refresh = ghost("Refresh");
+        JButton refresh = ghost(I18n.t("getmods.btn.refresh"));
         Runnable load = () -> {
             refresh.setEnabled(false);
-            status.setText("Getting the list of mods…");
+            status.setText(I18n.t("getmods.status.loading"));
             Thread t = new Thread(() -> {
                 Listing l = load(app.appDir);
                 SwingUtilities.invokeLater(() -> {
                     show(app, list, l);
-                    status.setText(l.mods().isEmpty() ? "No mods to show: the website can't be reached and the app has no list."
-                            : count(l.mods().size()) + (l.online() ? ", from the website." : ", from the app's own copy (the website can't be reached)."));
+                    status.setText(l.mods().isEmpty() ? I18n.t("getmods.status.empty")
+                            : (l.online() ? I18n.t("getmods.status.online", count(l.mods().size()))
+                            : I18n.t("getmods.status.offline", count(l.mods().size()))));
                     refresh.setEnabled(true);
                 });
             }, "get-mods");
@@ -162,11 +163,9 @@ final class GetMods {
         };
         refresh.addActionListener(e -> load.run());
 
-        p.add(label("Get mods", TEXT, 16f, true));
+        p.add(label(I18n.t("getmods.title"), TEXT, 16f, true));
         p.add(Box.createVerticalStrut(6));
-        p.add(wrapLabel("Horizon mods made with this app's mod kit, ready to play. Install adds one to Horizon; then, in the "
-                + "Horizon launcher, open Mods and press Build under \"Native build of Horizon\", and play that build. "
-                + "Each mod says which Horizon it needs.", MUTED));
+        p.add(wrapLabel(I18n.t("getmods.desc"), MUTED));
         p.add(Box.createVerticalStrut(10));
         JPanel top = row();
         top.add(refresh);
@@ -176,8 +175,7 @@ final class GetMods {
         p.add(Box.createVerticalStrut(12));
         p.add(list);
         p.add(Box.createVerticalStrut(8));
-        p.add(wrapLabel("Native mods run with your rights and aren't sandboxed. These are this project's own mods, with "
-                + "their source on GitHub.", MUTED));
+        p.add(wrapLabel(I18n.t("getmods.warning"), MUTED));
         // Loaded the first time the tab shows.
         p.addHierarchyListener(e -> {
             if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && p.isShowing()
@@ -190,7 +188,7 @@ final class GetMods {
     }
 
     static String count(int n) {
-        return n + (n == 1 ? " mod" : " mods");
+        return I18n.t(n == 1 ? "getmods.count.one" : "getmods.count.other", n);
     }
 
     static void show(TranslatorApp app, JPanel list, Listing l) {
@@ -213,11 +211,13 @@ final class GetMods {
 
         JPanel text = column();
         text.add(label(m.name() + (m.version().isEmpty() ? "" : "  " + m.version()), TEXT, 15f, true));
-        if (!m.author().isEmpty()) text.add(label("by " + m.author(), MUTED, 12f, false));
+        if (!m.author().isEmpty()) text.add(label(I18n.t("getmods.by_author", m.author()), MUTED, 12f, false));
         text.add(Box.createVerticalStrut(4));
         if (!m.description().isEmpty()) text.add(wrapLabel(m.description(), TEXT));
         text.add(Box.createVerticalStrut(4));
-        String needs = "Needs Horizon's hook points API " + m.hooks() + " or newer" + (m.needs().isEmpty() ? "." : " (" + m.needs() + ").");
+        String needs = m.needs().isEmpty()
+                ? I18n.t("getmods.needs", m.hooks())
+                : I18n.t("getmods.needs_detail", m.hooks(), m.needs());
         text.add(wrapLabel(needs, MUTED));
         JLabel state = label(" ", OK, 12f, true);
         text.add(Box.createVerticalStrut(4));
@@ -225,29 +225,29 @@ final class GetMods {
         c.add(text, BorderLayout.CENTER);
 
         JPanel buttons = column();
-        JButton install = primary("Install");
-        JButton save = ghost("Save file…");
-        JLabel source = link("Source code", SOURCE + m.id());
+        JButton install = primary(I18n.t("getmods.btn.install"));
+        JButton save = ghost(I18n.t("getmods.btn.save"));
+        JLabel source = link(I18n.t("getmods.link.source"), SOURCE + m.id());
         buttons.add(install);
         buttons.add(Box.createVerticalStrut(6));
         buttons.add(save);
         buttons.add(Box.createVerticalStrut(6));
         buttons.add(source);
-        c.add(buttons, BorderLayout.EAST);
+        c.add(buttons, BorderLayout.LINE_END);
 
         Runnable refreshState = () -> {
             String have = installedVersion(NativePackage.defaultHome(), m.id());
             if (have == null) {
                 state.setText(" ");
-                install.setText("Install");
+                install.setText(I18n.t("getmods.btn.install"));
             } else if (have.equals(m.version())) {
                 state.setForeground(OK);
-                state.setText("Installed (" + have + ")");
-                install.setText("Reinstall");
+                state.setText(I18n.t("getmods.state.installed", have));
+                install.setText(I18n.t("getmods.btn.reinstall"));
             } else {
                 state.setForeground(WARN);
-                state.setText("Installed: " + have + ". " + m.version() + " is out.");
-                install.setText("Update");
+                state.setText(I18n.t("getmods.state.update_available", have, m.version()));
+                install.setText(I18n.t("getmods.btn.update"));
             }
         };
         refreshState.run();
@@ -256,7 +256,7 @@ final class GetMods {
             install.setEnabled(false);
             save.setEnabled(false);
             state.setForeground(MUTED);
-            state.setText("Downloading…");
+            state.setText(I18n.t("getmods.state.downloading"));
             Thread t = new Thread(() -> {
                 String msg;
                 boolean ok;
@@ -280,7 +280,7 @@ final class GetMods {
                     save.setEnabled(true);
                     if (done) {
                         refreshState.run();
-                        state.setText(state.getText() + " - now press Build in the launcher's Mods page.");
+                        state.setText(state.getText() + I18n.t("getmods.state.build_reminder"));
                     } else {
                         state.setForeground(BAD);
                         state.setText("<html>" + escape(error) + "</html>");
@@ -309,7 +309,7 @@ final class GetMods {
                 SwingUtilities.invokeLater(() -> {
                     save.setEnabled(true);
                     state.setForeground(err == null ? OK : BAD);
-                    state.setText(err == null ? "<html>Saved " + escape(to.toString()) + "</html>" : "<html>" + escape(err) + "</html>");
+                    state.setText(err == null ? "<html>" + I18n.t("getmods.state.saved", escape(to.toString())) + "</html>" : "<html>" + escape(err) + "</html>");
                 });
             }, "save-" + m.id());
             t.setDaemon(true);

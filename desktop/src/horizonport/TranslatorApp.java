@@ -27,6 +27,7 @@ import java.util.stream.Stream;
  * Files next to this jar (the app folder): horizon-port.jar, vineflower-*.jar, horizon-src.zip,
  * mappings/horizon-mappings.json, horizon-shaderport.exe, logo.png, donate.json.
  *
+ *   --lang <code>                                 sets the UI language (e.g. ar, hi, zh-CN)
  *   --selftest <mod.jar> <pack.zip> <out folder>   runs both converters without the window
  *   --make-mod <spec.json> <out folder> [game folder]  makes a mod as the "Make a mod" tab does (and installs it)
  *   --screenshot <file.png> [tab number] [example] saves a picture of the window and exits (example: fills
@@ -68,6 +69,15 @@ public final class TranslatorApp {
 
     public static void main(String[] args) throws Exception {
         Path appDir = appDir();
+        String cliLang = null;
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("--lang") && i + 1 < args.length) {
+                cliLang = args[i + 1];
+                break;
+            }
+        }
+        I18n.init(cliLang);
+
         if (args.length >= 1 && args[0].equals("--check-update")) {
             String have = Updates.current();
             Updates.Release r = Updates.latest();
@@ -86,13 +96,26 @@ public final class TranslatorApp {
             System.exit(selfTest(appDir, Path.of(args[1]), Path.of(args[2]), Path.of(args[3])));
         }
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
+        I18n.setupFonts();
         TranslatorApp app = new TranslatorApp(appDir);
         SwingUtilities.invokeAndWait(app::build);
-        if (args.length >= 2 && args[0].equals("--screenshot")) {
-            if (args.length >= 3) SwingUtilities.invokeAndWait(() -> app.tabs.setSelectedIndex(Integer.parseInt(args[2])));
-            if (args.length >= 4) SwingUtilities.invokeAndWait(() -> app.kit.useExample(Integer.parseInt(args[3])));
-            Thread.sleep(args.length >= 3 ? 7000 : 800); // time for the Support tab's fetch
-            SwingUtilities.invokeAndWait(() -> app.saveScreenshot(Path.of(args[1])));
+
+        int shotIndex = -1;
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("--screenshot")) { shotIndex = i; break; }
+        }
+        if (shotIndex != -1 && shotIndex + 1 < args.length) {
+            Path shotPath = Path.of(args[shotIndex + 1]);
+            if (shotIndex + 2 < args.length) {
+                int tabIdx = Integer.parseInt(args[shotIndex + 2]);
+                SwingUtilities.invokeAndWait(() -> app.tabs.setSelectedIndex(tabIdx));
+            }
+            if (shotIndex + 3 < args.length) {
+                int exIdx = Integer.parseInt(args[shotIndex + 3]);
+                SwingUtilities.invokeAndWait(() -> app.kit.useExample(exIdx));
+            }
+            Thread.sleep(shotIndex + 2 < args.length ? 7000 : 800); // time for the Support tab's fetch
+            SwingUtilities.invokeAndWait(() -> app.saveScreenshot(shotPath));
             System.exit(0);
         }
     }
@@ -106,12 +129,24 @@ public final class TranslatorApp {
     // ------------------------------------------------------------------ the window
 
     void build() {
-        frame = new JFrame("Horizon Translator");
+        frame = new JFrame(I18n.t("app.title"));
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         try {
             BufferedImage icon = ImageIO.read(appDir.resolve("logo.png").toFile());
             if (icon != null) frame.setIconImage(icon);
         } catch (IOException ignored) {}
+
+        rebuildWindow();
+
+        frame.setSize(920, 820);
+        frame.setMinimumSize(new Dimension(640, 560));
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+
+    void rebuildWindow() {
+        int selectedTab = tabs != null ? tabs.getSelectedIndex() : 0;
+        I18n.setupFonts();
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(BG);
@@ -123,22 +158,19 @@ public final class TranslatorApp {
         JPanel update = updateBanner();
         body.add(update);
         JComponent experimental;
-        body.add(experimental = notice("Experimental: don't expect a finished mod.",
-                "The mod converter is a helper, not a one-click port. Most mods come out only partly working: anything "
-                        + "built on Minecraft features Horizon doesn't have yet is switched off and listed in PORTING.md for you to finish. "
-                        + "Only a mod that converts fully comes out as a ready-to-install .hnmod file."));
+        body.add(experimental = notice(I18n.t("notice.experimental.title"), I18n.t("notice.experimental.desc")));
         body.add(Box.createVerticalStrut(12));
 
         tabs = new JTabbedPane() { // as tall as the open tab, not the tallest one
             @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
         };
-        tabs.setFont(tabs.getFont().deriveFont(Font.BOLD, 14f));
-        tabs.addTab("Mods", onlyWhenOpen(modPanel()));
-        tabs.addTab("Shader packs", onlyWhenOpen(shaderTab()));
+        tabs.setFont(I18n.uiFont(Font.BOLD, 14f));
+        tabs.addTab(I18n.t("tab.mods"), onlyWhenOpen(modPanel()));
+        tabs.addTab(I18n.t("tab.shaders"), onlyWhenOpen(shaderTab()));
         kit = new ModKitPanel(this);
-        tabs.addTab("Make a mod", onlyWhenOpen(kit.panel()));
-        tabs.addTab("Get mods", onlyWhenOpen(GetMods.panel(this)));
-        tabs.addTab("Support me ♥", onlyWhenOpen(Support.panel(appDir)));
+        tabs.addTab(I18n.t("tab.kit"), onlyWhenOpen(kit.panel()));
+        tabs.addTab(I18n.t("tab.get_mods"), onlyWhenOpen(GetMods.panel(this)));
+        tabs.addTab("<html>" + escape(I18n.t("tab.support")) + "</html>", onlyWhenOpen(Support.panel(appDir)));
         // The converter's warning is about converted mods: only on the Mods tab.
         tabs.addChangeListener(e -> { experimental.setVisible(tabs.getSelectedIndex() == 0); tabs.revalidate(); tabs.repaint(); });
         tabs.setAlignmentX(0);
@@ -153,7 +185,7 @@ public final class TranslatorApp {
         progress.setAlignmentX(0);
         progress.setMaximumSize(new Dimension(Integer.MAX_VALUE, 8));
         body.add(progress);
-        status = label("Everything runs on this PC: your files are never uploaded.", MUTED, 13f, false);
+        status = label(I18n.t("status.local_only"), MUTED, 13f, false);
         body.add(status);
         body.add(Box.createVerticalStrut(10));
         body.add(resultPanel());
@@ -165,10 +197,12 @@ public final class TranslatorApp {
         root.add(footer(), BorderLayout.SOUTH);
 
         frame.setContentPane(root);
-        frame.setSize(920, 820);
-        frame.setMinimumSize(new Dimension(640, 560));
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        if (selectedTab >= 0 && selectedTab < tabs.getTabCount()) {
+            tabs.setSelectedIndex(selectedTab);
+        }
+        frame.applyComponentOrientation(I18n.isRtl() ? ComponentOrientation.RIGHT_TO_LEFT : ComponentOrientation.LEFT_TO_RIGHT);
+        frame.revalidate();
+        frame.repaint();
     }
 
     /** A tab page that only asks for height while it's the open tab. */
@@ -188,13 +222,13 @@ public final class TranslatorApp {
         JPanel h = new JPanel(new BorderLayout());
         h.setBackground(SURFACE);
         h.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER), new EmptyBorder(10, 20, 10, 20)));
-        JLabel title = label("Horizon Translator", TEXT, 18f, true);
+        JLabel title = label(I18n.t("app.title"), TEXT, 18f, true);
         try {
             BufferedImage logo = ImageIO.read(appDir.resolve("logo.png").toFile());
             if (logo != null) title.setIcon(new ImageIcon(logo.getScaledInstance(28, 28, Image.SCALE_SMOOTH)));
             title.setIconTextGap(10);
         } catch (IOException ignored) {}
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
         left.setOpaque(false);
         left.add(title);
         String version = Updates.current();
@@ -202,53 +236,68 @@ public final class TranslatorApp {
             left.add(Box.createHorizontalStrut(10));
             left.add(label(version, MUTED, 12f, false));
         }
-        h.add(left, BorderLayout.WEST);
-        JPanel links = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
+        h.add(left, BorderLayout.LINE_START);
+
+        JPanel links = new JPanel(new FlowLayout(FlowLayout.TRAILING, 14, 0));
         links.setOpaque(false);
-        links.add(link("How it works", REPO_URL + "/blob/main/docs/HOW-IT-WORKS.md"));
-        links.add(link("Report an issue", REPO_URL + "/issues/new/choose"));
-        links.add(link("Discord", DISCORD_URL));
-        JLabel support = label("<html><u>Support me ♥</u></html>", ACCENT, 13f, true);
+
+        JComboBox<I18n.Language> langBox = new JComboBox<>(I18n.LANGUAGES.toArray(new I18n.Language[0]));
+        langBox.setSelectedItem(I18n.currentLanguage());
+        langBox.setMaximumSize(new Dimension(140, 26));
+        langBox.setFont(I18n.uiFont(Font.PLAIN, 12f));
+        langBox.setFocusable(false);
+        langBox.addActionListener(e -> {
+            I18n.Language chosen = (I18n.Language) langBox.getSelectedItem();
+            if (chosen != null && !chosen.code().equals(I18n.lang())) {
+                I18n.setLang(chosen.code());
+                rebuildWindow();
+            }
+        });
+        links.add(langBox);
+
+        links.add(link(I18n.t("nav.how_it_works"), REPO_URL + "/blob/main/docs/HOW-IT-WORKS.md"));
+        links.add(link(I18n.t("nav.report_issue"), REPO_URL + "/issues/new/choose"));
+        links.add(link(I18n.t("nav.discord"), DISCORD_URL));
+        JLabel support = label("<html><u>" + escape(I18n.t("nav.support")) + "</u></html>", ACCENT, 13f, true);
         support.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         support.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override public void mouseClicked(java.awt.event.MouseEvent e) { tabs.setSelectedIndex(tabs.getTabCount() - 1); }
         });
         links.add(support);
-        h.add(links, BorderLayout.EAST);
+        h.add(links, BorderLayout.LINE_END);
         return h;
     }
 
     JComponent modPanel() {
         JPanel p = card();
         modChosen = label(" ", ACCENT, 14f, true);
-        p.add(dropZone("Drop a Fabric mod .jar here", "or click to choose a file", ".jar", f -> {
+        p.add(dropZone(I18n.t("mod.drop.title"), I18n.t("drop.sub.click"), ".jar", f -> {
             modFile = f;
             modChosen.setText(f.getName() + "  ·  " + String.format(Locale.ROOT, "%.1f MB", f.length() / 1048576.0));
             convertMod.setEnabled(true);
         }, modChosen));
         p.add(Box.createVerticalStrut(12));
-        p.add(wrapLabel("The converter only decompiles mods whose licence allows it (MIT, Apache, GPL, LGPL, MPL, OSL and similar). "
-                + "All Rights Reserved mods are only converted for their author.", MUTED));
+        p.add(wrapLabel(I18n.t("mod.licence_notice"), MUTED));
         p.add(Box.createVerticalStrut(8));
-        isAuthor = new JCheckBox("I made this mod");
+        isAuthor = new JCheckBox(I18n.t("mod.author.check"));
         isAuthor.setOpaque(false);
         isAuthor.setAlignmentX(0);
         p.add(isAuthor);
         JPanel nameRow = row();
-        nameRow.add(label("Your name exactly as the mod lists it (fabric.mod.json): ", MUTED, 13f, false));
+        nameRow.add(label(I18n.t("mod.author.label"), MUTED, 13f, false));
         authorName = new JTextField(18);
         authorName.setMaximumSize(new Dimension(260, 30));
         nameRow.add(authorName);
         nameRow.setVisible(false);
         isAuthor.addActionListener(e -> { nameRow.setVisible(isAuthor.isSelected()); p.revalidate(); });
         p.add(nameRow);
-        installMod = new JCheckBox("If it converts fully, add the .hnmod to Horizon (the launcher then builds it)");
+        installMod = new JCheckBox(I18n.t("mod.install.check"));
         installMod.setOpaque(false);
         installMod.setSelected(true);
         installMod.setAlignmentX(0);
         p.add(installMod);
         p.add(Box.createVerticalStrut(12));
-        convertMod = primary("Convert mod");
+        convertMod = primary(I18n.t("mod.btn.convert"));
         convertMod.setEnabled(false);
         convertMod.addActionListener(e -> convertModClicked());
         p.add(convertMod);
@@ -283,18 +332,17 @@ public final class TranslatorApp {
     JComponent shaderPanel() {
         JPanel p = card();
         packChosen = label(" ", ACCENT, 14f, true);
-        p.add(dropZone("Drop a shader pack .zip here", "Iris or OptiFine format · or click to choose a file", ".zip", this::choosePack, packChosen));
+        p.add(dropZone(I18n.t("shader.drop.title"), I18n.t("shader.drop.sub"), ".zip", this::choosePack, packChosen));
         p.add(Box.createVerticalStrut(12));
-        p.add(wrapLabel("Works with packs like BSL, Complementary, Bliss, Photon, Noble, Mellow, MakeUp, Solas and Super Duper Vanilla. "
-                + "Big packs take a few minutes.", MUTED));
+        p.add(wrapLabel(I18n.t("shader.notice"), MUTED));
         p.add(Box.createVerticalStrut(8));
-        install = new JCheckBox("Also install it into Horizon's shaderpacks folder");
+        install = new JCheckBox(I18n.t("shader.install.check"));
         install.setOpaque(false);
         install.setSelected(true);
         install.setAlignmentX(0);
         p.add(install);
         p.add(Box.createVerticalStrut(12));
-        convertPack = primary("Convert shader pack");
+        convertPack = primary(I18n.t("shader.btn.convert_pack"));
         convertPack.setEnabled(false);
         convertPack.addActionListener(e -> convertPackClicked());
         p.add(convertPack);
@@ -305,21 +353,21 @@ public final class TranslatorApp {
 
     JComponent outputRow() {
         JPanel r = row();
-        outLabel = label("Results are saved in: " + outDir, MUTED, 13f, false);
+        outLabel = label(I18n.t("output.saved_in", outDir), MUTED, 13f, false);
         r.add(outLabel);
         r.add(Box.createHorizontalStrut(10));
-        JButton change = ghost("Change…");
+        JButton change = ghost(I18n.t("output.btn.change"));
         change.addActionListener(e -> {
             JFileChooser c = new JFileChooser(outDir.toFile());
             c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             if (c.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
                 outDir = c.getSelectedFile().toPath();
-                outLabel.setText("Results are saved in: " + outDir);
+                outLabel.setText(I18n.t("output.saved_in", outDir));
             }
         });
         r.add(change);
         r.add(Box.createHorizontalStrut(6));
-        JButton open = ghost("Open folder");
+        JButton open = ghost(I18n.t("output.btn.open"));
         open.addActionListener(e -> openFolder(outDir));
         r.add(open);
         return r;
@@ -331,11 +379,11 @@ public final class TranslatorApp {
         resultPanel.add(resultTitle);
         resultPanel.add(Box.createVerticalStrut(8));
         JPanel actions = row();
-        openResult = primary("Open result");
+        openResult = primary(I18n.t("result.btn.open"));
         openResult.addActionListener(e -> { if (lastResult != null) openFolder(lastResult); });
         actions.add(openResult);
         actions.add(Box.createHorizontalStrut(8));
-        JButton issue = ghost("Report a problem");
+        JButton issue = ghost(I18n.t("result.btn.issue"));
         issue.addActionListener(e -> browse(REPO_URL + "/issues/new/choose"));
         actions.add(issue);
         resultPanel.add(actions);
@@ -348,8 +396,8 @@ public final class TranslatorApp {
         log.setEditable(false);
         log.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         JTabbedPane out = new JTabbedPane();
-        out.addTab("Report", scroll(report));
-        out.addTab("Converter log", scroll(log));
+        out.addTab(I18n.t("result.tab.report"), scroll(report));
+        out.addTab(I18n.t("result.tab.log"), scroll(log));
         out.setPreferredSize(new Dimension(800, 360));
         out.setAlignmentX(0);
         resultPanel.add(out);
@@ -358,19 +406,19 @@ public final class TranslatorApp {
     }
 
     JComponent footer() {
-        JPanel f = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 6));
+        JPanel f = new JPanel(new FlowLayout(FlowLayout.LEADING, 14, 6));
         f.setBackground(SURFACE2);
-        f.add(label("Community project · not affiliated with Mojang, Microsoft or the Horizon team · no warranty", MUTED, 12f, false));
-        f.add(link("Terms of Use", SITE_TERMS));
-        f.add(link("Source code", REPO_URL));
+        f.add(label(I18n.t("footer.disclaimer"), MUTED, 12f, false));
+        f.add(link(I18n.t("footer.terms"), SITE_TERMS));
+        f.add(link(I18n.t("footer.source"), REPO_URL));
         return f;
     }
 
     JComponent agreeLine() {
         JPanel r = row();
-        r.add(label("By converting you agree to the ", MUTED, 12f, false));
-        r.add(link("Terms of Use", SITE_TERMS));
-        r.add(label(": only convert files you're allowed to modify.", MUTED, 12f, false));
+        r.add(label(I18n.t("agree.prefix"), MUTED, 12f, false));
+        r.add(link(I18n.t("agree.terms"), SITE_TERMS));
+        r.add(label(I18n.t("agree.suffix"), MUTED, 12f, false));
         return r;
     }
 
@@ -381,14 +429,14 @@ public final class TranslatorApp {
         if (isAuthor.isSelected() && author.isEmpty()) { authorName.requestFocus(); return; }
         Path jar = modFile.toPath();
         boolean inst = installMod.isSelected();
-        run("Converting " + jar.getFileName() + "… (checking the licence, decompiling, translating to Rust)",
+        run(I18n.t("mod.status.converting", jar.getFileName()),
                 () -> convertMod(appDir, jar, author, inst, outDir));
     }
 
     void convertPackClicked() {
         Path pack = packFile.toPath();
         boolean inst = install.isSelected();
-        run("Converting " + pack.getFileName() + "… (loading every program the way Horizon does, then fixing what fails)",
+        run(I18n.t("shader.status.converting", pack.getFileName()),
                 () -> convertPack(appDir, pack, inst, outDir));
     }
 
@@ -413,7 +461,7 @@ public final class TranslatorApp {
                 Result r;
                 try { r = get(); } catch (Exception e) {
                     Throwable c = e.getCause() != null ? e.getCause() : e;
-                    r = new Result(false, "Something went wrong: " + c.getMessage(), "", String.valueOf(c), null);
+                    r = new Result(false, I18n.t("status.error", c.getMessage()), "", String.valueOf(c), null);
                 }
                 show(r);
             }
@@ -421,13 +469,13 @@ public final class TranslatorApp {
     }
 
     void show(Result r) {
-        status.setText(r.ok() ? "Done. Saved in " + r.where() : r.title());
+        status.setText(r.ok() ? I18n.t("status.done", r.where()) : r.title());
         status.setForeground(r.ok() ? OK : BAD);
         resultTitle.setText(r.title());
         resultTitle.setForeground(r.ok() ? TEXT : BAD);
         lastResult = r.where();
         openResult.setVisible(r.where() != null);
-        report.setText("<html><body style='font-family:sans-serif;font-size:11px'>" + Markdown.toHtml(r.report()) + "</body></html>");
+        report.setText("<html><body style='font-family:" + I18n.fontFamily() + ",sans-serif;font-size:11px'>" + Markdown.toHtml(r.report()) + "</body></html>");
         report.setCaretPosition(0);
         log.setText(r.log());
         log.setCaretPosition(0);
@@ -453,9 +501,9 @@ public final class TranslatorApp {
             if (!author.isEmpty()) { cmd.add("--i-am-the-author"); cmd.add(author); }
             if (install) cmd.add("--install");
             Proc p = exec(cmd, work, 10);
-            if (p.code() == 3) return new Result(false, "Not converted: the mod's licence doesn't allow it", p.out(), p.out(), null);
+            if (p.code() == 3) return new Result(false, I18n.t("mod.result.licence_denied"), p.out(), p.out(), null);
             if (p.code() != 0 || !Files.isDirectory(bundle))
-                return new Result(false, p.timedOut() ? "Stopped: the conversion took too long" : "The converter stopped with an error", "", p.out(), null);
+                return new Result(false, p.timedOut() ? I18n.t("result.timeout") : I18n.t("mod.result.failed"), "", p.out(), null);
             String id = modId(bundle, jar);
             Files.createDirectories(outDir);
             Path dest = unique(outDir.resolve(id + "-horizon"));
@@ -466,11 +514,12 @@ public final class TranslatorApp {
             Path hnmod = dest.resolve(id + ".hnmod");
             if (Files.isRegularFile(hnmod)) {
                 boolean added = p.out().contains("installed as ");
-                return new Result(true, "Full port: " + hnmod.getFileName() + " is ready"
-                        + (added ? "  ·  added to Horizon: build it in the launcher (Mods > Build)" : "  ·  the report says how to install it"),
-                        report, p.out(), hnmod);
+                String title = added
+                        ? I18n.t("mod.result.full_port_installed", hnmod.getFileName())
+                        : I18n.t("mod.result.full_port_manual", hnmod.getFileName());
+                return new Result(true, title, report, p.out(), hnmod);
             }
-            return new Result(true, "Not a full port, so no .hnmod was made: the report lists what's left", report, p.out(), dest);
+            return new Result(true, I18n.t("mod.result.partial_port"), report, p.out(), dest);
         } finally {
             deleteTree(work); // includes the decompiled Java
         }
@@ -486,11 +535,12 @@ public final class TranslatorApp {
         String stem = pack.getFileName().toString().replaceFirst("(?i)\\.zip$", "");
         Path zip = outDir.resolve(stem + "-horizon.zip");
         if (p.code() != 0 || !Files.isRegularFile(zip))
-            return new Result(false, p.timedOut() ? "Stopped: the conversion took too long" : "This pack couldn't be converted", "", p.out(), null);
+            return new Result(false, p.timedOut() ? I18n.t("result.timeout") : I18n.t("shader.result.failed"), "", p.out(), null);
         String after = p.out().lines().filter(l -> l.contains("after:")).findFirst().orElse("Converted").strip();
         String rep = read(outDir.resolve(stem + "-horizon.md"));
         String installed = p.out().lines().filter(l -> l.contains("installed")).findFirst().orElse("");
-        return new Result(true, after + (installed.isEmpty() ? "" : "  ·  installed into Horizon"), rep, p.out(), zip);
+        String title = installed.isEmpty() ? after : I18n.t("shader.result.installed", after);
+        return new Result(true, title, rep, p.out(), zip);
     }
 
     static int selfTest(Path appDir, Path jar, Path pack, Path out) throws Exception {
@@ -592,6 +642,7 @@ public final class TranslatorApp {
 
         WrapLabel(String html) {
             super(html);
+            setFont(I18n.uiFont(Font.PLAIN, 13f));
             addComponentListener(new java.awt.event.ComponentAdapter() {
                 @Override public void componentResized(java.awt.event.ComponentEvent e) {
                     if (getWidth() != laidOutWidth) { laidOutWidth = getWidth(); revalidate(); }
@@ -625,7 +676,7 @@ public final class TranslatorApp {
 
     /** Items side by side at their own size; only as tall as they need. */
     static JPanel row() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0)) {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0)) {
             @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
         };
         p.setOpaque(false);
@@ -645,7 +696,7 @@ public final class TranslatorApp {
     static JLabel label(String text, Color color, float size, boolean bold) {
         JLabel l = new JLabel(text);
         l.setForeground(color);
-        l.setFont(l.getFont().deriveFont(bold ? Font.BOLD : Font.PLAIN, size));
+        l.setFont(I18n.uiFont(bold ? Font.BOLD : Font.PLAIN, size));
         l.setAlignmentX(0);
         return l;
     }
@@ -653,7 +704,7 @@ public final class TranslatorApp {
     static JComponent wrapLabel(String text, Color color) {
         JLabel l = new WrapLabel("<html>" + escape(text) + "</html>");
         l.setForeground(color);
-        l.setFont(l.getFont().deriveFont(13f));
+        l.setFont(I18n.uiFont(Font.PLAIN, 13f));
         l.setAlignmentX(0);
         return l;
     }
@@ -672,18 +723,17 @@ public final class TranslatorApp {
         bar.setVisible(false);
         JLabel text = new WrapLabel(" ");
         text.setForeground(TEXT);
-        text.setFont(text.getFont().deriveFont(13f));
+        text.setFont(I18n.uiFont(Font.PLAIN, 13f));
         bar.add(text, BorderLayout.CENTER);
-        JButton get = primary("Get the update");
-        bar.add(get, BorderLayout.EAST);
+        JButton get = primary(I18n.t("update.btn.get"));
+        bar.add(get, BorderLayout.LINE_END);
         String have = Updates.current();
         if (have == null) return bar; // run from source: nothing to compare with
         Thread t = new Thread(() -> {
             Updates.Release r = Updates.latest();
             if (r == null || !Updates.newer(r.version(), have)) return;
             SwingUtilities.invokeLater(() -> {
-                text.setText("<html><b>A newer version is out: " + escape(r.version()) + "</b> (you have " + escape(have)
-                        + "). Download the new installer from GitHub and run it; your converted files stay.</html>");
+                text.setText(I18n.t("update.banner", escape(r.version()), escape(have)));
                 get.addActionListener(e -> browse(r.page()));
                 bar.setVisible(true);
                 Container parent = bar.getParent();
@@ -702,7 +752,7 @@ public final class TranslatorApp {
     static JComponent notice(String title, String text) {
         JLabel l = new WrapLabel("<html><b>" + escape(title) + "</b><br>" + escape(text) + "</html>");
         l.setForeground(TEXT);
-        l.setFont(l.getFont().deriveFont(13f));
+        l.setFont(I18n.uiFont(Font.PLAIN, 13f));
         l.setOpaque(true);
         l.setBackground(WARN_SOFT);
         l.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 4, 0, 0, WARN), new EmptyBorder(10, 12, 10, 12)));
@@ -714,7 +764,7 @@ public final class TranslatorApp {
         JButton b = new JButton(text);
         b.setBackground(ACCENT);
         b.setForeground(Color.WHITE);
-        b.setFont(b.getFont().deriveFont(Font.BOLD, 14f));
+        b.setFont(I18n.uiFont(Font.BOLD, 14f));
         b.setFocusPainted(false);
         b.setBorder(new EmptyBorder(10, 20, 10, 20));
         b.setContentAreaFilled(false);
@@ -727,6 +777,7 @@ public final class TranslatorApp {
 
     static JButton ghost(String text) {
         JButton b = new JButton(text);
+        b.setFont(I18n.uiFont(Font.PLAIN, 13f));
         b.setFocusPainted(false);
         b.setAlignmentX(0);
         return b;
@@ -777,7 +828,7 @@ public final class TranslatorApp {
 
         Runnable pick = () -> {
             JFileChooser c = new JFileChooser();
-            c.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(ending + " files", ending.substring(1)));
+            c.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(I18n.t("drop.filter", ending), ending.substring(1)));
             if (c.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) accept(c.getSelectedFile(), ending, taken, chosen);
         };
         z.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -802,7 +853,7 @@ public final class TranslatorApp {
 
     void accept(File f, String ending, FileTaken taken, JLabel chosen) {
         if (!f.getName().toLowerCase(Locale.ROOT).endsWith(ending)) {
-            chosen.setText("That's not a " + ending + " file.");
+            chosen.setText(I18n.t("drop.wrong_file", ending));
             return;
         }
         taken.take(f);

@@ -25,12 +25,18 @@ fi
 echo "== app"
 javac --release 21 -nowarn -cp mod-converter/build/horizon-port.jar -d "$B/classes" desktop/src/horizonport/*.java
 echo "$APP_VERSION" > "$B/classes/horizonport/app-version.txt"
+mkdir -p "$B/classes/horizonport/i18n"
+cp desktop/src/horizonport/i18n/*.properties "$B/classes/horizonport/i18n/"
 jar --create --file "$B/input/horizon-translator-app.jar" --main-class horizonport.TranslatorApp -C "$B/classes" .
 cp mod-converter/build/horizon-port.jar mod-converter/tools/vineflower-*.jar "$B/input/"
 cp mod-converter/mappings/horizon-mappings.json "$B/input/mappings/"
 cp "$SHADERPORT_BIN" "$B/input/horizon-shaderport"
 chmod +x "$B/input/horizon-shaderport"
 cp web/public/logo.png web/public/donate.json web/public/making-mods.md "$B/input/"
+if [ -d web/public/i18n ]; then
+  mkdir -p "$B/input/i18n"
+  cp -r web/public/i18n/making-mods.*.md "$B/input/i18n/" 2>/dev/null || true
+fi
 cp -r mod-converter/kit-examples "$B/input/"
 python3 scripts/mods-index.py --check
 cp -r web/public/mods "$B/input/"
