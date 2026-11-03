@@ -83,7 +83,7 @@ final class Support {
 
     static void fill(JPanel p, Info info) {
         p.removeAll();
-        p.add(label("Support me", TEXT, 16f, true));
+        p.add(label(I18n.t("support.title"), TEXT, 16f, true));
         p.add(Box.createVerticalStrut(6));
         if (!info.message().isEmpty()) {
             p.add(wrapLabel(info.message(), MUTED));
@@ -92,7 +92,7 @@ final class Support {
         List<Wallet> wallets = info.wallets().stream().filter(Support::usable).toList();
         List<Link> links = info.links().stream().filter(l -> l.url().startsWith("https://") && !l.name().isEmpty()).toList();
         if (wallets.isEmpty() && links.isEmpty()) {
-            p.add(wrapLabel("Donation addresses haven't been added yet. Thanks for thinking of it!", MUTED));
+            p.add(wrapLabel(I18n.t("support.empty"), MUTED));
         }
         if (!wallets.isEmpty()) {
             JPanel grid = new JPanel(new GridLayout(0, 3, 12, 12)) {
@@ -103,8 +103,7 @@ final class Support {
             for (Wallet w : wallets) grid.add(walletCard(w));
             p.add(grid);
             p.add(Box.createVerticalStrut(12));
-            p.add(wrapLabel("Only send on the networks listed under each address. Crypto sent on another network or to a "
-                    + "mistyped address can't be got back. Scan the QR code, or select the address and press Ctrl+C, instead of typing it.", MUTED));
+            p.add(wrapLabel(I18n.t("support.warning"), MUTED));
         }
         if (!links.isEmpty()) {
             p.add(Box.createVerticalStrut(10));
@@ -127,23 +126,23 @@ final class Support {
         c.setBackground(SURFACE2);
         c.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER, 1, true), new EmptyBorder(12, 12, 12, 12)));
         c.add(centred(w.name() + (w.coins().isEmpty() ? "" : " (" + w.coins() + ")"), TEXT, 14f, true));
-        if (!w.networks().isEmpty()) c.add(centred("Send on: " + w.networks(), MUTED, 12f, false));
+        if (!w.networks().isEmpty()) c.add(centred(I18n.t("support.send_on", w.networks()), MUTED, 12f, false));
         c.add(Box.createVerticalStrut(8));
 
         JLabel qr;
         try {
             Qr code = Qr.encode(w.address());
             qr = new JLabel(new ImageIcon(code.image(Math.max(2, 180 / (code.size + 8)))));
-            qr.setToolTipText(w.name() + " address");
+            qr.setToolTipText(I18n.t("support.address_tooltip", w.name()));
         } catch (IllegalArgumentException e) {
-            qr = label("(address too long for a QR code)", MUTED, 12f, false);
+            qr = label(I18n.t("support.qr_too_long"), MUTED, 12f, false);
         }
         c.add(qr);
         c.add(Box.createVerticalStrut(8));
 
         JTextArea addr = new JTextArea(w.address());
         addr.setEditable(false);
-        addr.setToolTipText("Select the address and press Ctrl+C to copy it");
+        addr.setToolTipText(I18n.t("support.copy_tooltip"));
         addr.setLineWrap(true);
         addr.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         addr.setColumns(26);

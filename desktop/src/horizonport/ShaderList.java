@@ -19,48 +19,48 @@ final class ShaderList {
     private ShaderList() {}
 
     /** tested: the version this app's converter was checked with. */
-    record Pack(String name, String author, String about, String url, String tested, String licence) {}
+    record Pack(String id, String name, String author, String url, String tested) {
+        String about() { return I18n.t("shader.pack." + id + ".about"); }
+        String licence() { return I18n.t("shader.pack." + id + ".licence"); }
+    }
 
     private static final String MODRINTH = "https://modrinth.com/shader/";
 
     static final List<Pack> BEST = List.of(
-            new Pack("Complementary Reimagined", "EminGT", "Bright and clean, close to vanilla's look, with lots of options. A great first pick.",
-                    MODRINTH + "complementary-reimagined", "r5.9.3", "Complementary License"),
-            new Pack("Complementary Unbound", "EminGT", "Complementary's more realistic style: deeper shadows, volumetric light and clouds.",
-                    MODRINTH + "complementary-unbound", "r5.9.3", "Complementary License"),
-            new Pack("BSL Shaders", "CaptTatsu", "A classic: soft lighting, nice water and sky, runs well on most PCs.",
-                    MODRINTH + "bsl-shaders", "v10.1.8", "all rights reserved"),
-            new Pack("Photon", "sixthsurge", "Realistic sky, clouds and light, for strong graphics cards.",
-                    MODRINTH + "photon-shader", "v1.4", "Photon License"),
-            new Pack("Bliss", "Xonk", "Cinematic light and fog, based on Chocapic13's shaders.",
-                    MODRINTH + "bliss-shader", "v2.1.2", "Chocapic13's licence"),
-            new Pack("Solas", "Septonious", "Colourful and dreamy, with aurora and nebula skies.",
-                    MODRINTH + "solas-shader", "V3.8", "all rights reserved"),
-            new Pack("Noble", "BelmuTM", "Realistic and detailed: reflections, shadows and clouds.",
-                    MODRINTH + "noble", "v1.9.9", "GPL-3.0"),
-            new Pack("Super Duper Vanilla", "Eldeston", "Vanilla's style made prettier, with stylised effects.",
-                    MODRINTH + "super-duper-vanilla", "", "FlameRender License"),
-            new Pack("Mellow", "TheCMK", "Soft, warm and calm.",
-                    MODRINTH + "mellow", "v3.4.1a", "MIT"),
-            new Pack("MakeUp - Ultra Fast", "KDXavier", "Light and fast: good shaders for weak PCs and laptops.",
-                    MODRINTH + "makeup-ultra-fast-shaders", "9.6", "LGPL-3.0"),
-            new Pack("Miniature", "ukrech", "Tiny and very fast, a small step up from vanilla.",
-                    MODRINTH + "miniature-shader", "2.19", "MIT"));
+            new Pack("reimagined", "Complementary Reimagined", "EminGT",
+                    MODRINTH + "complementary-reimagined", "r5.9.3"),
+            new Pack("unbound", "Complementary Unbound", "EminGT",
+                    MODRINTH + "complementary-unbound", "r5.9.3"),
+            new Pack("bsl", "BSL Shaders", "CaptTatsu",
+                    MODRINTH + "bsl-shaders", "v10.1.8"),
+            new Pack("photon", "Photon", "sixthsurge",
+                    MODRINTH + "photon-shader", "v1.4"),
+            new Pack("bliss", "Bliss", "Xonk",
+                    MODRINTH + "bliss-shader", "v2.1.2"),
+            new Pack("solas", "Solas", "Septonious",
+                    MODRINTH + "solas-shader", "V3.8"),
+            new Pack("noble", "Noble", "BelmuTM",
+                    MODRINTH + "noble", "v1.9.9"),
+            new Pack("super_duper", "Super Duper Vanilla", "Eldeston",
+                    MODRINTH + "super-duper-vanilla", ""),
+            new Pack("mellow", "Mellow", "TheCMK",
+                    MODRINTH + "mellow", "v3.4.1a"),
+            new Pack("makeup", "MakeUp - Ultra Fast", "KDXavier",
+                    MODRINTH + "makeup-ultra-fast-shaders", "9.6"),
+            new Pack("miniature", "Miniature", "ukrech",
+                    MODRINTH + "miniature-shader", "2.19"));
 
     static JComponent panel(TranslatorApp app) {
         JPanel p = card();
-        p.add(label("Best shader packs", TEXT, 16f, true));
+        p.add(label(I18n.t("shader.best.title"), TEXT, 16f, true));
         p.add(Box.createVerticalStrut(6));
-        p.add(wrapLabel("Packs that convert well. Press Download page, download the Iris or OptiFine version from the pack's "
-                + "official page, then press Convert and pick the .zip you downloaded. It converts on your PC and goes into "
-                + "Horizon's shaderpacks folder. Newer versions than the one tested usually work too.", MUTED));
+        p.add(wrapLabel(I18n.t("shader.best.desc"), MUTED));
         p.add(Box.createVerticalStrut(12));
         for (Pack pack : BEST) {
             p.add(packCard(app, pack));
             p.add(Box.createVerticalStrut(10));
         }
-        p.add(wrapLabel("Converted packs are for your own use: most of these packs' licences don't allow sharing changed copies, "
-                + "so don't upload them. Each pack belongs to its author; this app isn't affiliated with them.", MUTED));
+        p.add(wrapLabel(I18n.t("shader.best.disclaimer"), MUTED));
         return p;
     }
 
@@ -74,16 +74,19 @@ final class ShaderList {
 
         JPanel text = column();
         text.add(label(pack.name(), TEXT, 15f, true));
-        text.add(label("by " + pack.author() + (pack.tested().isEmpty() ? "" : "  ·  tested with " + pack.tested()) + "  ·  " + pack.licence(), MUTED, 12f, false));
+        String meta = pack.tested().isEmpty()
+                ? I18n.t("shader.pack.meta", pack.author(), pack.licence())
+                : I18n.t("shader.pack.meta_tested", pack.author(), pack.tested(), pack.licence());
+        text.add(label(meta, MUTED, 12f, false));
         text.add(Box.createVerticalStrut(4));
         text.add(wrapLabel(pack.about(), TEXT));
         c.add(text, BorderLayout.CENTER);
 
         JPanel buttons = column();
-        JButton page = ghost("Download page");
+        JButton page = ghost(I18n.t("shader.btn.page"));
         page.setToolTipText(pack.url());
         page.addActionListener(e -> browse(pack.url()));
-        JButton convert = primary("Convert…");
+        JButton convert = primary(I18n.t("shader.btn.convert"));
         convert.addActionListener(e -> {
             File f = pick(app, pack);
             if (f != null) app.convertPackFile(f);
@@ -91,7 +94,7 @@ final class ShaderList {
         buttons.add(page);
         buttons.add(Box.createVerticalStrut(6));
         buttons.add(convert);
-        c.add(buttons, BorderLayout.EAST);
+        c.add(buttons, BorderLayout.LINE_END);
         return c;
     }
 
@@ -99,8 +102,8 @@ final class ShaderList {
     private static File pick(TranslatorApp app, Pack pack) {
         Path downloads = Path.of(System.getProperty("user.home"), "Downloads");
         JFileChooser ch = new JFileChooser(Files.isDirectory(downloads) ? downloads.toFile() : null);
-        ch.setDialogTitle("Pick the " + pack.name() + " .zip you downloaded");
-        ch.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Shader pack (.zip)", "zip"));
+        ch.setDialogTitle(I18n.t("shader.pick.title", pack.name()));
+        ch.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(I18n.t("shader.filter.zip"), "zip"));
         return ch.showOpenDialog(app.frame) == JFileChooser.APPROVE_OPTION ? ch.getSelectedFile() : null;
     }
 }

@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Terms of Use · Horizon Translator</title>
+  <title data-i18n="terms.page_title">Terms of Use · Horizon Translator</title>
   <link rel="icon" href="logo.png" type="image/png">
   <link rel="apple-touch-icon" href="logo.png">
   <link rel="stylesheet" href="style.css">
+  <script src="i18n.js"></script>
 </head>
 <body>
   <header class="top">
@@ -15,88 +16,90 @@
         <img src="logo.png" alt="" width="28" height="28">
         <span>Horizon Translator</span>
       </a>
-      <nav><a href="./">Back to the translator</a></nav>
+      <nav>
+        <a href="./" data-i18n="terms.back">Back to the translator</a>
+        <select class="lang-select" id="terms-lang-select" name="lang" aria-label="Language"></select>
+      </nav>
     </div>
   </header>
 
   <main class="wrap terms">
-    <h1>Terms of Use</h1>
-    <p class="hint">Last updated: 1 November 2026</p>
+    <div id="terms-unofficial" class="notice" role="note" hidden>
+      <strong data-i18n="terms.unofficial">This is an unofficial translation. The official terms of use are in English.</strong>
+    </div>
 
-    <p>Horizon Translator is a free community tool that converts Fabric mods and Iris/OptiFine shader packs so they
+    <h1 data-i18n="terms.title">Terms of Use</h1>
+    <p class="hint" data-i18n="terms.updated">Last updated: 1 November 2026</p>
+
+    <p data-i18n="terms.intro">Horizon Translator is a free community tool that converts Fabric mods and Iris/OptiFine shader packs so they
     can run in Horizon. It is this website and the Horizon Translator app for Windows (together, "the tool").
     By converting a file, downloading the app, or using a converted file, you agree to these terms.
     If you don't agree, don't use the tool.</p>
 
-    <h2>1. Only convert what you're allowed to</h2>
+    <h2 data-i18n="terms.1.title">1. Only convert what you're allowed to</h2>
     <ul>
-      <li>Only convert a mod or shader pack if you made it, or if its licence or its author allows you to modify it.</li>
-      <li>The mod converter checks a mod's licence and refuses mods that are <em>All Rights Reserved</em>, "no derivatives",
+      <li data-i18n="terms.1.1">Only convert a mod or shader pack if you made it, or if its licence or its author allows you to modify it.</li>
+      <li data-i18n="terms.1.2">The mod converter checks a mod's licence and refuses mods that are <em>All Rights Reserved</em>, "no derivatives",
         or have no clear licence. That check reads what the file says about itself and can be wrong. Making sure you
         have the right to convert a file is <strong>your</strong> responsibility, not the tool's.</li>
-      <li>The app's "I made this mod" option is only for a mod's own author. Using it for someone else's mod
+      <li data-i18n="terms.1.3">The app's "I made this mod" option is only for a mod's own author. Using it for someone else's mod
         breaks these terms and may break the law.</li>
-      <li>Don't use the tool to get around a licence, copy someone else's work, or pass it off as your own.</li>
+      <li data-i18n="terms.1.4">Don't use the tool to get around a licence, copy someone else's work, or pass it off as your own.</li>
     </ul>
 
-    <h2>2. Converted files are for your own use</h2>
+    <h2 data-i18n="terms.2.title">2. Converted files are for your own use</h2>
     <ul>
-      <li>Converted files are a modified version of someone's work. Use them yourself, and only share them if the
+      <li data-i18n="terms.2.1">Converted files are a modified version of someone's work. Use them yourself, and only share them if the
         original licence allows sharing modified copies. Most shader pack licences don't.</li>
-      <li>Credit the original authors as their licence asks. Conditions found by the licence check are listed in the
+      <li data-i18n="terms.2.2">Credit the original authors as their licence asks. Conditions found by the licence check are listed in the
         converted mod's <code>PORTING.md</code>.</li>
     </ul>
 
-    <h2>3. No warranty</h2>
+    <h2 data-i18n="terms.3.title">3. No warranty</h2>
     <ul>
-      <li>The website, the app and the converters are provided <strong>"as is"</strong>, without any warranty. Converted mods and
+      <li data-i18n="terms.3.1">The website, the app and the converters are provided <strong>"as is"</strong>, without any warranty. Converted mods and
         shader packs may not work fully, or at all, and the mod converter in particular is experimental.</li>
-      <li>Converted mods are native code compiled into your game. Read what you build and only build mods you trust.
+      <li data-i18n="terms.3.2">Converted mods are native code compiled into your game. Read what you build and only build mods you trust.
         Keep backups of your worlds and files.</li>
-      <li>The Windows app isn't code-signed. Only download it from this site or the project's GitHub Releases page.</li>
-      <li>To the extent the law allows, the people who make the tool aren't liable for any loss or damage from using it
+      <li data-i18n="terms.3.3">The Windows app isn't code-signed. Only download it from this site or the project's GitHub Releases page.</li>
+      <li data-i18n="terms.3.4">To the extent the law allows, the people who make the tool aren't liable for any loss or damage from using it
         or the files it produces.</li>
     </ul>
 
-    <h2>4. Your files and privacy</h2>
+    <h2 data-i18n="terms.4.title">4. Your files and privacy</h2>
     <ul>
-      <li>Your files are never uploaded. Shader packs are converted inside your browser and mods inside the app on your
+      <li data-i18n="terms.4.1">Your files are never uploaded. Shader packs are converted inside your browser and mods inside the app on your
         own computer. Decompiled code is deleted as soon as a conversion ends.</li>
-      <li>The site doesn't use accounts, cookies or tracking. It is hosted on GitHub Pages, and loads two small
+      <li data-i18n="terms.4.2">The site doesn't use accounts, cookies or tracking. It is hosted on GitHub Pages, and loads two small
         libraries from public CDNs (jsDelivr and cdnjs), which see your visit like any website would.</li>
-      <li>The app works offline. It only goes online when you click a link, which opens in your browser.</li>
-      <li>Donations are voluntary gifts. They don't buy anything, can't be refunded, and don't create any obligation.</li>
+      <li data-i18n="terms.4.3">The app works offline. It only goes online when you click a link, which opens in your browser.</li>
+      <li data-i18n="terms.4.4">Donations are voluntary gifts. They don't buy anything, can't be refunded, and don't create any obligation.</li>
     </ul>
 
-    <h2>5. Acceptable use</h2>
+    <h2 data-i18n="terms.5.title">5. Acceptable use</h2>
     <ul>
-      <li>Don't use the tool to make or spread malware, or to break the law.</li>
+      <li data-i18n="terms.5.1">Don't use the tool to make or spread malware, or to break the law.</li>
     </ul>
 
-    <h2>6. Copyright complaints and takedowns</h2>
-    <p>If you believe the tool, the project's source code, or anything it hosts infringes your rights, open an issue
+    <h2 data-i18n="terms.6.title">6. Copyright complaints and takedowns</h2>
+    <p data-i18n="terms.6.body">If you believe the tool, the project's source code, or anything it hosts infringes your rights, open an issue
     on <a class="repo-issues" href="#" rel="noopener" target="_blank">GitHub</a> with: what work is yours, what you
     believe infringes it, and how to reach you. Complaints are taken seriously and handled as quickly as possible.
     The tool never receives or stores the files people convert, so there is usually nothing stored to remove, but
     the converters' behaviour can be changed (for example, to refuse a specific mod or pack).</p>
 
-    <h2>7. Not official</h2>
-    <p>The site is a community project. It isn't made by, endorsed by, or affiliated with Mojang, Microsoft, the Horizon
+    <h2 data-i18n="terms.7.title">7. Not official</h2>
+    <p data-i18n="terms.7.body">The site is a community project. It isn't made by, endorsed by, or affiliated with Mojang, Microsoft, the Horizon
     project, Fabric, Iris, OptiFine, or the authors of any mod or shader pack. "Minecraft" is a trademark of Mojang AB.</p>
 
-    <h2>8. Changes</h2>
-    <p>These terms may change. The date at the top shows the latest version. Using the site after a change means you accept it.</p>
+    <h2 data-i18n="terms.8.title">8. Changes</h2>
+    <p data-i18n="terms.8.body">These terms may change. The date at the top shows the latest version. Using the site after a change means you accept it.</p>
 
-    <p><a href="./">← Back to the translator</a></p>
+    <p><a href="./" data-i18n="terms.back_bottom">← Back to the translator</a></p>
   </main>
 
   <footer class="wrap foot">
-    <p>Horizon Translator · community project · not affiliated with Mojang, Microsoft or the Horizon team.</p>
+    <p data-i18n="foot.community">Horizon Translator · community project · not affiliated with Mojang, Microsoft or the Horizon team.</p>
   </footer>
-  <script>
-    // Same address as REPO_URL in app.js.
-    for (const a of document.querySelectorAll(".repo-issues"))
-      a.href = "https://github.com/merenotnoonereal/Horizon-Translator/issues/new/choose";
-  </script>
 </body>
 </html>

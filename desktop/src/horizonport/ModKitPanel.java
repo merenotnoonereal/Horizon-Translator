@@ -65,11 +65,13 @@ final class ModKitPanel {
         KEYS = k.toArray(new String[0][]);
     }
 
-    static final String NO_KEY = "(no key)";
+    static String noKey() {
+        return I18n.t("kit.key.none");
+    }
 
     static JComboBox<String> keyBox(boolean optional, String chosen) {
         JComboBox<String> b = new JComboBox<>();
-        if (optional) b.addItem(NO_KEY);
+        if (optional) b.addItem(noKey());
         for (String[] k : KEYS) b.addItem(k[0]);
         setKey(b, chosen);
         b.setMaximumRowCount(16);
@@ -88,35 +90,39 @@ final class ModKitPanel {
         return "";
     }
 
-    static final String[] ACTIONS = {"Say in chat", "Show / hide the HUD box", "Zoom in / out"};
+    static String[] actions() {
+        return new String[] {
+                I18n.t("kit.action.say"),
+                I18n.t("kit.action.toggle_hud"),
+                I18n.t("kit.action.toggle_zoom")
+        };
+    }
     static final String[] ACTION_IDS = {"say", "toggle_hud", "toggle_zoom"};
 
     // ------------------------------------------------------------------ the page
 
     JComponent panel() {
         JPanel p = card();
-        p.add(label("Make your own Horizon mod", TEXT, 17f, true));
+        p.add(label(I18n.t("kit.title"), TEXT, 17f, true));
         p.add(Box.createVerticalStrut(4));
-        p.add(wrapLabel("Pick what your mod does, fill in the boxes and press Make mod. You get a ready-to-install .hnmod and the "
-                + "mod's Rust code, which you can change later if you want to go further. The mods work on newer Horizon versions too: "
-                + "they only use the parts of the game Horizon keeps stable for mods.", MUTED));
+        p.add(wrapLabel(I18n.t("kit.desc"), MUTED));
         p.add(Box.createVerticalStrut(10));
 
         JPanel top = row();
-        top.add(label("Start from: ", TEXT, 13f, true));
+        top.add(label(I18n.t("kit.start_from"), TEXT, 13f, true));
         examples = new JComboBox<>(loadExamples().toArray(new Example[0]));
         examples.setMaximumSize(new Dimension(260, 30));
         top.add(examples);
         top.add(Box.createHorizontalStrut(6));
-        JButton use = ghost("Use");
+        JButton use = ghost(I18n.t("kit.btn.use"));
         use.addActionListener(e -> { if (examples.getSelectedItem() instanceof Example ex) load(ex.spec()); });
         top.add(use);
         top.add(Box.createHorizontalStrut(14));
-        JButton open = ghost("Open a mod I made…");
+        JButton open = ghost(I18n.t("kit.btn.open"));
         open.addActionListener(e -> openProject());
         top.add(open);
         top.add(Box.createHorizontalStrut(14));
-        JButton guide = ghost("Guide");
+        JButton guide = ghost(I18n.t("kit.btn.guide"));
         guide.addActionListener(e -> showGuide());
         top.add(guide);
         p.add(top);
@@ -124,22 +130,22 @@ final class ModKitPanel {
 
         // The basics.
         JPanel basics = grid();
-        name = new JTextField("My First Mod", 24);
+        name = new JTextField(I18n.t("kit.default.name"), 24);
         version = new JTextField("1.0.0", 10);
         author = new JTextField("", 18);
-        description = area(2, "A new Horizon mod.");
-        addRow(basics, "Name", name);
+        description = area(2, I18n.t("kit.default.desc"));
+        addRow(basics, I18n.t("kit.field.name"), name);
         modId = new JTextField(20);
-        modId.setToolTipText("Horizon tells mods apart by their id: keep it the same for new versions of the same mod.");
+        modId.setToolTipText(I18n.t("kit.tip.mod_id"));
         idLabel = label(" ", MUTED, 12f, false);
         JPanel idRow = row();
         idRow.add(modId);
         idRow.add(Box.createHorizontalStrut(8));
         idRow.add(idLabel);
-        addRow(basics, "Mod id", idRow);
-        addRow(basics, "Version", version);
-        addRow(basics, "Made by", author);
-        addRow(basics, "Description", new JScrollPane(description));
+        addRow(basics, I18n.t("kit.field.mod_id"), idRow);
+        addRow(basics, I18n.t("kit.field.version"), version);
+        addRow(basics, I18n.t("kit.field.author"), author);
+        addRow(basics, I18n.t("kit.field.description"), new JScrollPane(description));
         p.add(basics);
         name.getDocument().addDocumentListener(onChange(this::refreshId));
         modId.getDocument().addDocumentListener(onChange(() -> {
@@ -152,64 +158,69 @@ final class ModKitPanel {
 
         // HUD box.
         JPanel hud = grid();
-        hudCorner = new JComboBox<>(new String[] {"Top left", "Top right", "Bottom left", "Bottom right"});
+        hudCorner = new JComboBox<>(new String[] {
+                I18n.t("kit.hud.corner.top_left"),
+                I18n.t("kit.hud.corner.top_right"),
+                I18n.t("kit.hud.corner.bottom_left"),
+                I18n.t("kit.hud.corner.bottom_right")
+        });
         hudCorner.setMaximumSize(new Dimension(160, 30));
         hudLines = area(3, "XYZ {x} / {y} / {z}\nFacing {facing}");
         hudColor = new JTextField("ffffff", 7);
-        JButton pick = ghost("Pick…");
+        JButton pick = ghost(I18n.t("kit.hud.pick_color"));
         pick.addActionListener(e -> {
-            Color c = JColorChooser.showDialog(app.frame, "Text colour", parseColor(hudColor.getText()));
+            Color c = JColorChooser.showDialog(app.frame, I18n.t("kit.hud.color_dialog"), parseColor(hudColor.getText()));
             if (c != null) hudColor.setText(String.format("%06x", c.getRGB() & 0xFFFFFF));
         });
         JPanel colour = row();
         colour.add(hudColor);
         colour.add(Box.createHorizontalStrut(6));
         colour.add(pick);
-        hudBg = check("Dark box behind the text", true);
+        hudBg = check(I18n.t("kit.hud.background"), true);
         hudKey = keyBox(true, "key.keyboard.h");
-        addRow(hud, "Corner", hudCorner);
-        addRow(hud, "Lines", new JScrollPane(hudLines));
-        addRow(hud, "Text colour", colour);
+        addRow(hud, I18n.t("kit.hud.corner"), hudCorner);
+        addRow(hud, I18n.t("kit.hud.lines"), new JScrollPane(hudLines));
+        addRow(hud, I18n.t("kit.hud.color"), colour);
         addRow(hud, "", hudBg);
-        addRow(hud, "Show/hide key", hudKey);
-        hudOn = section(p, "HUD box", "Text in a corner of the screen, like coordinates or FPS. Players can hide it.", hud);
+        addRow(hud, I18n.t("kit.hud.key"), hudKey);
+        hudOn = section(p, I18n.t("kit.section.hud.title"), I18n.t("kit.section.hud.sub"), hud);
 
         // Commands.
-        commands = new Rows("Add command", () -> commandRow(Map.of()));
-        commandsOn = section(p, "Chat commands", "Commands players type in chat, like /hello. /<mod id> always lists your commands and keys.", commands.view);
+        commands = new Rows(I18n.t("kit.commands.add"), () -> commandRow(Map.of()));
+        commandsOn = section(p, I18n.t("kit.section.commands.title"), I18n.t("kit.section.commands.sub"), commands.view);
 
         // Keys.
-        keys = new Rows("Add key", () -> keyRow(Map.of()));
-        keysOn = section(p, "Keys", "Keys that do something. Players can change them in Options > Mods.", keys.view);
+        keys = new Rows(I18n.t("kit.keys.add"), () -> keyRow(Map.of()));
+        keysOn = section(p, I18n.t("kit.section.keys.title"), I18n.t("kit.section.keys.sub"), keys.view);
 
         // Zoom.
         JPanel zoom = grid();
         zoomKey = keyBox(false, "key.keyboard.c");
         zoomFactor = new JSpinner(new SpinnerNumberModel(4.0, 1.5, 10.0, 0.5));
         zoomFactor.setMaximumSize(new Dimension(80, 30));
-        zoomHold = check("Only while the key is held (otherwise press to zoom in, press again to zoom out)", true);
-        zoomSmooth = check("Smooth, like the spyglass", true);
-        zoomScroll = check("Mouse wheel zooms closer or further while zooming", true);
-        addRow(zoom, "Key", zoomKey);
-        addRow(zoom, "Times closer", zoomFactor);
+        zoomHold = check(I18n.t("kit.zoom.hold"), true);
+        zoomSmooth = check(I18n.t("kit.zoom.smooth"), true);
+        zoomScroll = check(I18n.t("kit.zoom.scroll"), true);
+        addRow(zoom, I18n.t("kit.zoom.key"), zoomKey);
+        addRow(zoom, I18n.t("kit.zoom.factor"), zoomFactor);
         addRow(zoom, "", zoomHold);
         addRow(zoom, "", zoomSmooth);
         addRow(zoom, "", zoomScroll);
-        zoomOn = section(p, "Zoom", "A zoom key, like OptiFine's.", zoom);
+        zoomOn = section(p, I18n.t("kit.section.zoom.title"), I18n.t("kit.section.zoom.sub"), zoom);
 
         // Messages.
         JPanel msg = column();
-        welcomeOn = check("Welcome message", false);
+        welcomeOn = check(I18n.t("kit.messages.welcome.check"), false);
         msg.add(welcomeOn);
-        welcome = area(2, "Welcome back! You're in the {dimension}.");
+        welcome = area(2, I18n.t("kit.default.welcome"));
         JPanel w = grid();
-        addRow(w, "On joining", new JScrollPane(welcome));
+        addRow(w, I18n.t("kit.messages.on_joining"), new JScrollPane(welcome));
         msg.add(w);
-        timers = new Rows("Add timed message", () -> timerRow(Map.of()));
+        timers = new Rows(I18n.t("kit.messages.timed.add"), () -> timerRow(Map.of()));
         msg.add(Box.createVerticalStrut(6));
-        msg.add(label("Timed messages", TEXT, 13f, true));
+        msg.add(label(I18n.t("kit.messages.timed.title"), TEXT, 13f, true));
         msg.add(timers.view);
-        messagesOn = section(p, "Chat messages", "A message when you join a world, and reminders every so often.", msg);
+        messagesOn = section(p, I18n.t("kit.section.messages.title"), I18n.t("kit.section.messages.sub"), msg);
 
         p.add(Box.createVerticalStrut(14));
         problems = new JLabel(" ");
@@ -217,23 +228,23 @@ final class ModKitPanel {
         problems.setAlignmentX(0);
         problems.setVisible(false);
         p.add(problems);
-        install = check("Add it to Horizon (then press Build on the launcher's Mods page)", true);
+        install = check(I18n.t("kit.install.check"), true);
         p.add(install);
         p.add(Box.createVerticalStrut(10));
         JPanel actions = row();
-        make = primary("Make mod");
+        make = primary(I18n.t("kit.btn.make"));
         make.addActionListener(e -> makeClicked());
         actions.add(make);
         actions.add(Box.createHorizontalStrut(10));
-        JButton pack = ghost("Check and pack a folder…");
-        pack.setToolTipText("For a mod you changed by hand: checks its code (when Rust is installed) and makes a new .hnmod");
+        JButton pack = ghost(I18n.t("kit.btn.pack"));
+        pack.setToolTipText(I18n.t("kit.tip.pack"));
         pack.addActionListener(e -> packClicked());
         actions.add(pack);
         p.add(actions);
         p.add(Box.createVerticalStrut(6));
-        p.add(label("Native mods run with the player's rights: only install mods whose code you trust.", MUTED, 12f, false));
+        p.add(label(I18n.t("kit.warning"), MUTED, 12f, false));
 
-        load(Map.of("name", "My First Mod", "version", "1.0.0", "description", "A new Horizon mod.",
+        load(Map.of("name", I18n.t("kit.default.name"), "version", "1.0.0", "description", I18n.t("kit.default.desc"),
                 "commands", List.of(Map.of("name", "hello", "action", "say", "text", List.of("Hello from {name}! You're at {bx}, {by}, {bz} in the {dimension}.")))));
         return p;
     }
@@ -243,7 +254,7 @@ final class ModKitPanel {
     /** A titled part of the form that its checkbox opens and closes. */
     private JCheckBox section(JPanel page, String title, String sub, JComponent body) {
         page.add(Box.createVerticalStrut(12));
-        JPanel box = new JPanel() { // the page's full width, open or closed
+        JPanel box = new JPanel() {
             @Override public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
         };
         box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
@@ -286,13 +297,13 @@ final class ModKitPanel {
         GridBagConstraints c = new GridBagConstraints();
         c.gridy = g.getComponentCount() / 2;
         c.gridx = 0;
-        c.anchor = GridBagConstraints.NORTHWEST;
+        c.anchor = GridBagConstraints.LINE_START;
         c.insets = new Insets(3, 0, 3, 10);
         g.add(TranslatorApp.label(label, TEXT, 13f, false), c);
         c.gridx = 1;
         c.weightx = 1;
         c.fill = field instanceof JScrollPane ? GridBagConstraints.HORIZONTAL : GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.WEST;
+        c.anchor = GridBagConstraints.LINE_START;
         c.insets = new Insets(3, 0, 3, 0);
         g.add(field, c);
     }
@@ -301,7 +312,7 @@ final class ModKitPanel {
         JTextArea a = new JTextArea(text, rows, 40);
         a.setLineWrap(true);
         a.setWrapStyleWord(true);
-        a.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        a.setFont(I18n.uiFont(Font.PLAIN, 13f));
         return a;
     }
 
@@ -323,14 +334,15 @@ final class ModKitPanel {
     private void refreshId() {
         if (idFollowsName) setId(ModKit.idFrom(name.getText().strip()));
         String id = modId.getText().strip();
-        idLabel.setText("its help command: /" + id);
+        idLabel.setText(I18n.t("kit.label.help_command", id));
     }
 
     private JComponent placeholderHelp() {
-        StringBuilder b = new StringBuilder("<html><b>In any text</b> you can use ");
+        StringBuilder b = new StringBuilder("<html>").append(I18n.t("kit.ph.intro"));
         for (int i = 0; i < ModKit.PLACEHOLDERS.length; i++) {
             String[] ph = ModKit.PLACEHOLDERS[i];
-            b.append(i == 0 ? "" : ", ").append("<code>{").append(ph[0]).append("}</code> (").append(escape(ph[1])).append(")");
+            String desc = I18n.t("kit.ph." + ph[0]);
+            b.append(i == 0 ? "" : ", ").append("<code>{").append(ph[0]).append("}</code> (").append(escape(desc)).append(")");
         }
         b.append(".</html>");
         JLabel l = new WrapLabel(b.toString());
@@ -365,7 +377,7 @@ final class ModKitPanel {
             JPanel line = row();
             line.add(r.view());
             line.add(Box.createHorizontalStrut(6));
-            JButton x = ghost("Remove");
+            JButton x = ghost(I18n.t("kit.btn.remove"));
             line.add(x);
             line.setBorder(new EmptyBorder(3, 0, 3, 0));
             rows.add(r);
@@ -386,7 +398,7 @@ final class ModKitPanel {
     }
 
     private static JComboBox<String> actionBox(String id, JTextField text) {
-        JComboBox<String> a = new JComboBox<>(ACTIONS);
+        JComboBox<String> a = new JComboBox<>(actions());
         int i = List.of(ACTION_IDS).indexOf(id);
         a.setSelectedIndex(Math.max(0, i));
         Runnable sync = () -> text.setEnabled(a.getSelectedIndex() == 0);
@@ -412,7 +424,7 @@ final class ModKitPanel {
         JTextField n = new JTextField(String.valueOf(m.get("name") == null ? "" : m.get("name")), 10);
         JTextField t = new JTextField(text(m.get("text")), 30);
         t.setCaretPosition(0);
-        t.setToolTipText("What it says in chat. Use | for a new line.");
+        t.setToolTipText(I18n.t("kit.tip.chat_lines"));
         JComboBox<String> a = actionBox(String.valueOf(m.get("action")), t);
         r.add(TranslatorApp.label("/", TEXT, 14f, true));
         r.add(n);
@@ -431,12 +443,12 @@ final class ModKitPanel {
 
     private Row keyRow(Map<?, ?> m) {
         JPanel r = row();
-        JTextField l = new JTextField(String.valueOf(m.get("label") == null ? "Say hi" : m.get("label")), 12);
-        l.setToolTipText("The key's name in Options > Mods");
+        JTextField l = new JTextField(String.valueOf(m.get("label") == null ? I18n.t("kit.default.key_label") : m.get("label")), 12);
+        l.setToolTipText(I18n.t("kit.tip.key_name"));
         JComboBox<String> k = keyBox(false, String.valueOf(m.get("key") == null ? "key.keyboard.g" : m.get("key")));
-        JTextField t = new JTextField(text(m.get("text") == null ? "Hi!" : m.get("text")), 22);
+        JTextField t = new JTextField(text(m.get("text") == null ? I18n.t("kit.default.key_text") : m.get("text")), 22);
         t.setCaretPosition(0);
-        t.setToolTipText("What it says in chat. Use | for a new line.");
+        t.setToolTipText(I18n.t("kit.tip.chat_lines"));
         JComboBox<String> a = actionBox(String.valueOf(m.get("action")), t);
         r.add(l);
         r.add(Box.createHorizontalStrut(6));
@@ -460,12 +472,12 @@ final class ModKitPanel {
         int every = m.get("every") instanceof Number n ? n.intValue() : 1800;
         JSpinner minutes = new JSpinner(new SpinnerNumberModel(Math.max(0.1, every / 60.0), 0.1, 1440.0, 1.0));
         minutes.setMaximumSize(new Dimension(80, 30));
-        JTextField t = new JTextField(text(m.get("text") == null ? "Time for a break!" : m.get("text")), 32);
+        JTextField t = new JTextField(text(m.get("text") == null ? I18n.t("kit.default.timer_text") : m.get("text")), 32);
         t.setCaretPosition(0);
-        t.setToolTipText("What it says in chat. Use | for a new line.");
-        r.add(TranslatorApp.label("Every ", TEXT, 13f, false));
+        t.setToolTipText(I18n.t("kit.tip.chat_lines"));
+        r.add(TranslatorApp.label(I18n.t("kit.messages.every"), TEXT, 13f, false));
         r.add(minutes);
-        r.add(TranslatorApp.label(" minutes: ", TEXT, 13f, false));
+        r.add(TranslatorApp.label(I18n.t("kit.messages.minutes"), TEXT, 13f, false));
         r.add(t);
         return new Row(r, () -> {
             Map<String, Object> v = new LinkedHashMap<>();
@@ -533,7 +545,7 @@ final class ModKitPanel {
             hudColor.setText(str(h.get("color"), "ffffff").replaceFirst("^#", ""));
             hudBg.setSelected(!Boolean.FALSE.equals(h.get("background")));
             String k = str(h.get("key"), "");
-            if (k.isEmpty()) hudKey.setSelectedItem(NO_KEY); else setKey(hudKey, k);
+            if (k.isEmpty()) hudKey.setSelectedItem(noKey()); else setKey(hudKey, k);
         }
         Map<?, ?> z = s.get("zoom") instanceof Map<?, ?> m ? m : null;
         setOn(zoomOn, z != null);
@@ -581,7 +593,7 @@ final class ModKitPanel {
                 try {
                     Map<String, Object> spec = Json.map(Json.parse(Text.read(f)));
                     String d = str(spec.get("description"), "");
-                    out.add(new Example(str(spec.get("name"), f.getFileName().toString()) + (d.isEmpty() ? "" : " — " + shorten(d, 50)), spec));
+                    out.add(new Example(str(spec.get("name"), f.getFileName().toString()) + (d.isEmpty() ? "" : " · " + shorten(d, 50)), spec));
                 } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
@@ -592,28 +604,51 @@ final class ModKitPanel {
 
     private void openProject() {
         JFileChooser c = new JFileChooser(app.outDir.toFile());
-        c.setDialogTitle("Pick the folder of a mod made here (it has horizon-kit.json)");
+        c.setDialogTitle(I18n.t("kit.open.title"));
         c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         if (c.showOpenDialog(app.frame) != JFileChooser.APPROVE_OPTION) return;
         Path f = c.getSelectedFile().toPath().resolve("horizon-kit.json");
         try {
             load(Json.map(Json.parse(Text.read(f))));
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(app.frame, "That folder has no horizon-kit.json (only mods made with this tab have one).",
-                    "Not a kit mod", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(app.frame, I18n.t("kit.open.not_kit_mod.msg"),
+                    I18n.t("kit.open.not_kit_mod.title"), JOptionPane.WARNING_MESSAGE);
         }
     }
 
     void showGuide() {
-        Path f = app.appDir.resolve("making-mods.md");
+        String lang = I18n.lang();
+        Path f = null;
+        if (!"en".equalsIgnoreCase(lang)) {
+            Path p1 = app.appDir.resolve("i18n").resolve("making-mods." + lang + ".md");
+            Path p2 = app.appDir.resolve("web/public/i18n/making-mods." + lang + ".md");
+            Path p3 = Path.of("web/public/i18n/making-mods." + lang + ".md");
+            if (Files.isRegularFile(p1)) f = p1;
+            else if (Files.isRegularFile(p2)) f = p2;
+            else if (Files.isRegularFile(p3)) f = p3;
+        }
+        if (f == null) {
+            Path p1 = app.appDir.resolve("making-mods.md");
+            Path p2 = app.appDir.resolve("web/public/making-mods.md");
+            Path p3 = Path.of("web/public/making-mods.md");
+            if (Files.isRegularFile(p1)) f = p1;
+            else if (Files.isRegularFile(p2)) f = p2;
+            else if (Files.isRegularFile(p3)) f = p3;
+        }
         String md;
-        try { md = Text.read(f); } catch (Exception e) { browse(REPO_URL + "/blob/main/web/public/making-mods.md"); return; }
-        JEditorPane pane = new JEditorPane("text/html", "<html><body style='font-family:sans-serif;font-size:11px;margin:10px'>"
+        try {
+            md = f != null ? Text.read(f) : Text.read(app.appDir.resolve("making-mods.md"));
+        } catch (Exception e) {
+            browse(REPO_URL + "/blob/main/web/public/making-mods.md");
+            return;
+        }
+        JEditorPane pane = new JEditorPane("text/html", "<html><body style='font-family:" + I18n.fontFamily() + ",sans-serif;font-size:11px;margin:10px'>"
                 + Markdown.toHtml(md) + "</body></html>");
         pane.setEditable(false);
         pane.addHyperlinkListener(e -> { if (e.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) browse(e.getURL().toString()); });
         pane.setCaretPosition(0);
-        JDialog d = new JDialog(app.frame, "Making Horizon mods: the guide", false);
+        JDialog d = new JDialog(app.frame, I18n.t("kit.guide.title"), false);
+        d.applyComponentOrientation(I18n.isRtl() ? ComponentOrientation.RIGHT_TO_LEFT : ComponentOrientation.LEFT_TO_RIGHT);
         JScrollPane sp = new JScrollPane(pane);
         sp.getVerticalScrollBar().setUnitIncrement(16);
         d.add(sp);
@@ -628,7 +663,7 @@ final class ModKitPanel {
         Map<String, Object> spec = spec();
         ModKit.Spec checked = ModKit.parse(spec);
         if (!checked.problems.isEmpty()) {
-            problems.setText("<html><b>Fix these first:</b><br>• " + String.join("<br>• ", checked.problems.stream().map(TranslatorApp::escape).toList()) + "</html>");
+            problems.setText("<html><b>" + I18n.t("kit.make.fix_first") + "</b><br>• " + String.join("<br>• ", checked.problems.stream().map(TranslatorApp::escape).toList()) + "</html>");
             problems.setVisible(true);
             app.tabs.revalidate();
             return;
@@ -637,13 +672,13 @@ final class ModKitPanel {
         boolean inst = install.isSelected();
         Path out = app.outDir;
         Path appDir = app.appDir;
-        app.run("Making " + checked.name + "…", () -> make(appDir, spec, out, inst ? NativePackage.defaultHome() : null));
+        app.run(I18n.t("kit.make.running", checked.name), () -> make(appDir, spec, out, inst ? NativePackage.defaultHome() : null));
     }
 
     /** What "Make mod" does: the project in a new folder of `out` named after the mod, its .hnmod, and the install. */
     static Result make(Path appDir, Map<String, Object> spec, Path out, Path install) throws Exception {
         ModKit.Spec checked = ModKit.parse(spec);
-        if (!checked.problems.isEmpty()) return new Result(false, "Fix these first: " + String.join(" ", checked.problems), "", "", null);
+        if (!checked.problems.isEmpty()) return new Result(false, I18n.t("kit.make.fix_first") + " " + String.join(" ", checked.problems), "", "", null);
         Files.createDirectories(out);
         Path dest = unique(out.resolve(checked.id));
         ModKit.Made m = ModKit.make(spec, dest, Main.sourceRoot(appDir.resolve("horizon-src.zip")), install);
@@ -651,25 +686,26 @@ final class ModKitPanel {
         boolean added = m.notes().stream().anyMatch(n -> n.startsWith("installed as "));
         String notes = m.notes().stream().filter(n -> !n.startsWith("installed as ")).map(n -> "- " + n).reduce("", (a, b) -> a + b + "\n");
         if (m.hnmod() == null)
-            return new Result(false, "Made the mod's folder, but no .hnmod: see the report", readme + "\n\n## Why there's no .hnmod\n\n" + notes, String.join("\n", m.notes()), dest);
-        return new Result(true, "Made " + checked.name + ": " + m.hnmod().getFileName()
-                + (added ? "  ·  added to Horizon: build it in the launcher" : "  ·  copy it into Horizon's horizon-native-mods folder"),
-                readme, "Project: " + dest + "\nMod file: " + m.hnmod() + "\n" + String.join("\n", m.notes()), dest);
+            return new Result(false, I18n.t("kit.make.no_hnmod"), readme + "\n\n## " + I18n.t("kit.make.why_no_hnmod") + "\n\n" + notes, String.join("\n", m.notes()), dest);
+        String title = added
+                ? I18n.t("kit.make.success_installed", checked.name, m.hnmod().getFileName())
+                : I18n.t("kit.make.success_manual", checked.name, m.hnmod().getFileName());
+        return new Result(true, title, readme, "Project: " + dest + "\nMod file: " + m.hnmod() + "\n" + String.join("\n", m.notes()), dest);
     }
 
     private void packClicked() {
         JFileChooser c = new JFileChooser(app.outDir.toFile());
-        c.setDialogTitle("Pick your mod's folder (the one with mixins/ and Cargo.toml)");
+        c.setDialogTitle(I18n.t("kit.pack.title"));
         c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         if (c.showOpenDialog(app.frame) != JFileChooser.APPROVE_OPTION) return;
         Path dir = c.getSelectedFile().toPath();
         if (!Files.isDirectory(dir.resolve("mixins"))) {
-            JOptionPane.showMessageDialog(app.frame, "That folder has no mixins/ folder: pick the mod's own folder.", "Not a mod folder", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(app.frame, I18n.t("kit.pack.no_mixins.msg"), I18n.t("kit.pack.no_mixins.title"), JOptionPane.WARNING_MESSAGE);
             return;
         }
         boolean inst = install.isSelected();
         Path appDir = app.appDir;
-        app.run("Checking and packing " + dir.getFileName() + "… (the first check with Rust takes a minute)", () -> {
+        app.run(I18n.t("kit.pack.running", dir.getFileName()), () -> {
             List<String> cmd = new ArrayList<>(List.of(javaExe().toString(), "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8",
                     "-cp", classpath(appDir), "horizonport.Main", "pack", dir.toString(),
                     "--horizon-src", appDir.resolve("horizon-src.zip").toString(),
@@ -679,8 +715,8 @@ final class ModKitPanel {
             String log = p.out();
             boolean ok = p.code() == 0;
             String report = "```\n" + log.strip() + "\n```\n";
-            String title = ok ? "Packed " + dir.getFileName() + (log.contains("installed as ") ? "  ·  added to Horizon: build it in the launcher" : "")
-                    : p.timedOut() ? "Stopped: the check took too long" : "Not packed: the log says what to fix";
+            String title = ok ? (log.contains("installed as ") ? I18n.t("kit.pack.ok_installed", dir.getFileName()) : I18n.t("kit.pack.ok", dir.getFileName()))
+                    : p.timedOut() ? I18n.t("kit.pack.timed_out") : I18n.t("kit.pack.failed");
             return new Result(ok, title, report, log, dir);
         });
     }
