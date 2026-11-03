@@ -102,6 +102,24 @@ report/                             the analysis report
   `frame`...), bound exactly as Coords HUD binds them. The mod's `key.<mod>.<name>` strings become
   its keys in Options > Mods, read with `native_mod_key`. A config screen or Mod Menu entry gets a
   settings page.
+- **The Fabric API layer** (`src/horizonport/jfabricapi.rs`, copied into `game_side.rs` of every bundle
+  that needs it) runs translated Fabric handlers the way Fabric would. The translator fills its table
+  (`J_FABRIC`, `j_fabric_commands`); the hooks call `fabric_tick`, `fabric_frame` and `fabric_command`.
+
+  | Fabric | Run by the layer from |
+  |---|---|
+  | `ClientLifecycleEvents.CLIENT_STARTED` | the window's first frame (or tick) |
+  | `ClientTickEvents.START_CLIENT_TICK`, `END_CLIENT_TICK` | the tick hook, first and last, in the window's `Game` only |
+  | `ClientTickEvents.START_LEVEL_TICK`, `END_LEVEL_TICK` (and the Yarn `_WORLD_` names) | the same tick, while a world is loaded |
+  | `ClientPlayConnectionEvents.JOIN`, `DISCONNECT` | the tick a player appears / goes away |
+  | `ClientCommandRegistrationCallback` with a Brigadier tree | the command hook: literals, `integer`/`longArg`/`floatArg`/`doubleArg` (with bounds), `bool`, `word`/`string`/`greedyString`, `executes`; errors answer in chat as Brigadier's do |
+  | `HudRenderCallback`, `HudElementRegistry` | the HUD hook (called directly: it needs the HUD batch) |
+
+  In a command's `executes`, `c.getSource()` stands for the running command: `sendFeedback`,
+  `sendError` (red), `getClient`, `getPlayer`, and `IntegerArgumentType.getInteger(c, "n")` and the
+  other getters work; a method that takes a `FabricClientCommandSource` translates too. `requires` and
+  `suggests` are left out (noted in the report). An `executes` that can't be translated still answers
+  in chat that it isn't ported, so the rest of the command keeps working.
 - **Mixins** become horizon-mixins injections (HEAD, RETURN, BEFORE_CALL, AFTER_CALL, MODIFY_ARG,
   WRAP_OPERATION, bridges...) per horizon-mixins' own Sponge feature map. The helper's bindings come
   from the target function's real signature; `selector` and `require` come from counting the call
@@ -302,13 +320,36 @@ Entries marked `checked` were read in Horizon's source (nightly a46ce68); `appro
 educated guesses. Reviewed suggestions from `match` can be copied into the table, so it grows with
 each mod.
 
+## Making new mods: `new` and `pack` (the mod kit)
+
+```bash
+java -jar build/horizon-port.jar new kit-examples/zoom.json --out my-zoom --horizon-src ../horizon-src [--install]
+java -jar build/horizon-port.jar pack my-zoom --horizon-src ../horizon-src [--install]
+```
+
+`new` makes a new Horizon native mod from a spec: what the app's **Make a mod** tab writes (`horizon-kit.json` in each
+mod). The spec names the mod and picks its parts: a HUD box (`hud`), chat commands (`commands`), keys (`keys`), zoom
+(`zoom`), a welcome message (`welcome`) and timed messages (`timers`); `ModKit.java` documents every field, and
+`kit-examples/` has four. Texts take placeholders (`{x}`, `{facing}`, `{fps}`...). The mod uses only Horizon's native
+hook points (hooks API 1), so its `.hnmod` says `"hooks": 1` and the launcher builds it on any Horizon that has them.
+The mod's logic is one `runtime.rs` with tests (`cargo test`); each hook is a small helper calling into it. `new`
+checks the spec first and lists every problem; it never writes into a folder that isn't empty.
+
+`pack` is for a mod whose code was changed by hand: `check` and `cargo test` when cargo is installed, then a new
+`<id>.hnmod` (with `"hooks": 2` when the code uses API 2's item panel or recipes). The guide for mod makers is
+`../web/public/making-mods.md`.
+
 ## Tests
 
 ```bash
 bash test/run-test.sh
+HORIZON_SRC=../horizon-src bash test/kit-test.sh   # the mod kit: every example made, compiled, tested, packed
 ```
 
-Besides the checks below, `test/TranslatorTest.java` translates small Java classes and checks the Rust.
+Besides the checks below, `test/TranslatorTest.java` translates small Java classes and checks the Rust,
+and `test/fabric_layer_test.rs` compiles the Fabric API layer against a stand-in `Game` and checks its
+event order and command parsing (when Rust is installed).
+
 
 This builds a made-up Fabric mod ("Sneak HUD": a HUD line, a key, a tick handler, three mixins, a
 block and some data) against stand-in game, Fabric and Mixin classes, runs `analyze` and `match`
@@ -327,4 +368,10 @@ block and some data) against stand-in game, Fabric and Mixin classes, runs `anal
   Integer overflow, which Java wraps, panics in a Rust debug build.
 - Generated bundles are checked against horizon-mixins' documented rules, not compiled here: build them with the launcher.
 - `match` reads Rust with simple patterns, not a parser. Its suggestions are candidates to check.
-- The Fabric event table covers the common events. Anything else shows up as an unmapped call.
+- The Fabric API layer covers the client events and commands above. Server events
+  (`ServerTickEvents`, `CommandRegistrationCallback`), `CLIENT_STOPPING`, screen events, interaction
+  callbacks and networking have no hook in Horizon a46ce68, the revision bundles pin; Horizon c9d474d
+  (API 80) adds hooks for most of them. Anything else shows up as an unmapped call.
+- A Fabric mod's jar never runs in Horizon as is: there are no Java classes for it to hook into.
+  The layer makes Fabric's API work for the translated code; everything that reaches into Minecraft
+  itself still needs a Horizon helper or hook point.

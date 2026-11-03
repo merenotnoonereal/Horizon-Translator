@@ -176,11 +176,21 @@ fn port_all(dir: &Path, out: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// `%APPDATA%/horizon/shaderpacks` (beside Horizon's `options.txt`).
+/// `<Horizon's home>/shaderpacks` (beside Horizon's `options.txt`). The home is `HORIZON_HOME`, else
+/// `dirs::data_dir()/horizon` as the launcher has it: `%APPDATA%` on Windows, `~/Library/Application Support` on
+/// macOS, `$XDG_DATA_HOME` or `~/.local/share` on Linux.
 fn horizon_shaderpacks_dir() -> Result<PathBuf, String> {
-    let base = std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
-        .ok_or("no APPDATA or HOME")?;
+    let nonempty = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+    if let Some(home) = nonempty("HORIZON_HOME") {
+        return Ok(home.join("shaderpacks"));
+    }
+    let base = if cfg!(windows) {
+        nonempty("APPDATA")
+    } else if cfg!(target_os = "macos") {
+        nonempty("HOME").map(|h| h.join("Library/Application Support"))
+    } else {
+        nonempty("XDG_DATA_HOME").filter(|p| p.is_absolute()).or_else(|| nonempty("HOME").map(|h| h.join(".local/share")))
+    }
+    .ok_or("no APPDATA or HOME")?;
     Ok(base.join("horizon").join("shaderpacks"))
 }

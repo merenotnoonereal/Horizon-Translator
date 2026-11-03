@@ -1,0 +1,8 @@
+{
+  "name": "Easy Zoom",
+  "id": "easy_zoom",
+  "version": "1.0.0",
+  "description": "Hold C to zoom in. Scroll while zooming to zoom closer or further.",
+  "author": "",
+  "zoom": {"key": "key.keyboard.c", "factor": 4, "hold": true, "smooth": true, "scroll": true}
+}

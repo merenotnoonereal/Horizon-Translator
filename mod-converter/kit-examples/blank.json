@@ -1,0 +1,10 @@
+{
+  "name": "My First Mod",
+  "id": "my_first_mod",
+  "version": "1.0.0",
+  "description": "A new Horizon mod.",
+  "author": "",
+  "commands": [
+    {"name": "hello", "action": "say", "text": ["Hello from {name}! You're at {bx}, {by}, {bz} in the {dimension}."]}
+  ]
+}

@@ -25,8 +25,11 @@ nothing to attach to yet, so no converter can do it.
 | Constants, enums, data classes, records | Rust consts, enums and structs | Done |
 | Changing statics (`static int ticks`, `static boolean open`) | Statics behind a lock (`JCell`) | Done |
 | Assets and data (`assets/`, `data/`) | A content mod (`.hmod`) built by `horizon-port-pack` | Done, by Horizon's own tool |
-| Fabric tick and HUD handlers (a lambda or `Class::method`) | Translated into `game_side.rs` and called from the `tick` / `hud` hook | Done when every statement has a Horizon helper; otherwise the rest is translated and those statements are TODOs |
-| Other Fabric events: keys, client commands, joining a server | Horizon hook points (`key`, `command`...) | Wired |
+| Fabric tick and HUD handlers (a lambda or `Class::method`) | Translated into `game_side.rs`; the Fabric API layer runs the tick ones from the `tick` hook, the HUD hook calls the HUD ones | Done when every statement has a Horizon helper; otherwise the rest is translated and those statements are TODOs |
+| Fabric lifecycle and connection events: `START_CLIENT_TICK`, `START/END_LEVEL_TICK`, `JOIN`, `DISCONNECT`, `CLIENT_STARTED` | The Fabric API layer (`jfabricapi.rs`), in Fabric's order, from the `tick` and `frame` hooks | Done (same rule for statements as above) |
+| Client commands (`ClientCommandRegistrationCallback` with a Brigadier tree: literals, number/bool/string arguments, `executes`) | The Fabric API layer's command engine, from the `command` hook; each `executes` translated on its own | Done per `executes`; one that can't be translated says so in chat |
+| Server events and commands, `CLIENT_STOPPING`, screen events, use/attack callbacks | Nothing in Horizon a46ce68 (c9d474d has hooks for most) | Blocked by the pinned Horizon |
+| Key events | Horizon's `key` hook | Wired |
 | Mixins on methods Horizon has (`@Inject` HEAD/RETURN/INVOKE, `@ModifyArg`, `@WrapOperation`...) | horizon-mixins injections, bound from the real Rust signature | Wired, when `match` finds the Rust function with high confidence |
 | Mixins `match` isn't sure about, `@Overwrite`, `@ModifyConstant` / `@ModifyVariable` | Commented-out injections plus a `todo/` note with the Java | Draft |
 | Code that calls Minecraft where Horizon has a helper: player position and look, sneaking, vanilla keys, the mod's keys (`consumeClick`, `isDown`), chat messages, HUD text, boxes and text width | `native_player`, `native_mapping`, `native_mod_key` (through the key hook), `native_chat`, `native_text`, `native_fill`, `native_text_width`, in `game_side.rs` | Done |
@@ -67,9 +70,9 @@ Map/Set/Optional, files in the config folder, JOML and `PoseStack`, `Random`, th
 
 | Mod | Methods translated | Statics translated | Fabric handlers | Hooks and injections wired | Still to write |
 |---|---|---|---|---|---|
-| Hand Animations | 79 of 92 (2 more done another way) | 191 of 199 | tick, init, join, hand drawing | 12 | 3 injections (rod tip, which hands render), item profiles' reload listener |
+| Hand Animations | 79 of 92 (2 more done another way) | 191 of 199 | tick, init, join, hand drawing, `/handanimations` (3 of 4 subcommands; `item` needs `ItemProfiles.describe`) | 12 | 3 injections (rod tip, which hands render), item profiles' reload listener |
 | NoForcedPacks | 158 of 301 | 109 of 117 | join (mixin) | 4 | 26 injections, plus the pack screens and pack repository |
-| Entity Keepsake | 35 of 184 (1 more done another way) | 77 of 96 | init, join | 3 | 35 injections, plus its render-state caching |
+| Entity Keepsake | 37 of 184 (1 more done another way) | 77 of 96 | init, join, `/entitykeepsake` (all 7 subcommands; `framewatch` without its frame sampling) | 3 | 35 injections, plus its render-state caching |
 
 What works in each bundle right now:
 
@@ -88,6 +91,26 @@ What works in each bundle right now:
 - **Entity Keepsake:** its settings file (`Properties`) loads and saves, its init handler runs, and
   its text helpers are in Rust. The mod itself caches Minecraft's entity render states and replays
   vertex buffers: a speed-up for Minecraft's renderer that has nothing to attach to in Horizon's.
+
+## Added: the Fabric API layer
+
+Every bundle that needs it gets one shared library, `jfabricapi.rs`, in `game_side.rs`: Fabric's event
+lifecycle and a Brigadier-style command engine, run from Horizon's hook points. The translator only fills in
+which handlers each event runs (`J_FABRIC`) and the command trees (`j_fabric_commands`), so a new Fabric event
+is one table row (`RustTranslator.FABRIC_EVENTS`) plus a field in the layer.
+
+- Events, in Fabric's order on the window's tick: `START_CLIENT_TICK`, `JOIN` / `DISCONNECT` (a player appears
+  or goes away), `START_LEVEL_TICK` / `END_LEVEL_TICK` (in a world), `END_CLIENT_TICK`; `CLIENT_STARTED` on the
+  first frame. None run in the integrated server's `Game`.
+- Commands: literals, `integer`/`longArg`/`floatArg`/`doubleArg` with bounds, `bool`, `word`/`string`/
+  `greedyString`; `executes` as a lambda or `Class::method`; `getSource().sendFeedback` / `sendError`,
+  `getClient`, `getPlayer`, `getInput` and the `getInteger(c, "n")`-style getters. Wrong input answers in
+  chat with Brigadier's message (`Integer must not be more than 16, found 40`). `requires` and `suggests`
+  are left out.
+- Also added: Java's text of a Map or List (`"..." + map` gives `{a=1, b=2}`), which Entity Keepsake's
+  status message needed.
+- Tests: `test/fabric_layer_test.rs` (18 checks of event order and command parsing, compiled with warnings
+  as errors) and 17 new translator checks.
 
 ## Added in the "any means" round
 

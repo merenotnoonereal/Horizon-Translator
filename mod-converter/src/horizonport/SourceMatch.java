@@ -118,7 +118,7 @@ final class SourceMatch {
             for (Path f : (Iterable<Path>) files.filter(p -> p.toString().endsWith(".rs"))::iterator) {
                 String rel = root.relativize(f).toString().replace('\\', '/');
                 if (skip(rel)) continue;
-                idx.scan(rel, Files.readAllLines(f, StandardCharsets.UTF_8));
+                idx.scan(rel, Text.lines(f));
             }
         }
         for (RustFn fn : idx.fns) {

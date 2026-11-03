@@ -98,7 +98,8 @@ expect "$J/game_side.rs" 'const KEY_NAMES: [(&str, &str); 1] = [("toggle", "key.
 expect "$B/genj/todo/mouse-handler-mixin-scroll.rs" '// | private boolean sneakhud$scroll(Object player) {'
 expect "$J/runtime.rs" 'pub mod java {'
 expect "$J/hud.rs" 'crate::game::port_sneakhud_game::on_hud_0(game, batch);'
-expect "$J/tick.rs" 'crate::game::port_sneakhud_game::on_tick_0(game);'
+expect "$J/tick.rs" 'crate::game::port_sneakhud_game::fabric_tick(game);'
+expect "$J/game_side.rs" 'tick_end: &[on_tick_0],'
 expect "$J/key.rs" 'crate::game::port_sneakhud_game::key_event(game, key, pressed);'
 expect "$J/game_side.rs" 'while key_consume("toggle") {'
 expect "$J/horizon-mixin.toml" 'name = "port_sneakhud_game"'
@@ -197,6 +198,12 @@ if [ -n "$RUSTC" ] && [ -n "$CARGO" ]; then
       echo "  FAIL: $(basename "$f") doesn't compile"; head -20 "$B/rust/rustc.log"; fail=1
     fi
   done
+  # The Fabric API layer's own behaviour: event order, command parsing.
+  if "$RUSTC" --edition 2021 -D warnings -o "$B/rust/fabric_layer_test" test/fabric_layer_test.rs > "$B/rust/layer.log" 2>&1       && "$B/rust/fabric_layer_test" > "$B/rust/layer-run.log" 2>&1; then
+    echo "  ok: the Fabric API layer's $(grep -c '^  ok:' "$B/rust/layer-run.log") checks pass"
+  else
+    echo "  FAIL: the Fabric API layer test"; tail -20 "$B/rust/layer.log" "$B/rust/layer-run.log" 2>/dev/null; fail=1
+  fi
   # game_side.rs and the hook helpers, against the native_* helpers of a real Horizon source when there is one.
   HSRC=""; [ -f ../horizon-src/Cargo.toml ] && HSRC=../horizon-src
   if [ -n "$HSRC" ]; then

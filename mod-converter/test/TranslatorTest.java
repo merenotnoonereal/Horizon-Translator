@@ -365,6 +365,46 @@ public class TranslatorTest {
         has(r, "hud_draw(game, batch);", "handler passes batch on");
         has(r, "pub fn key_event(game: &mut crate::game::Game<'_>, key: &str, pressed: bool) {", "key glue");
 
+        // The Fabric API layer: events beyond tick and HUD, and a Brigadier command tree.
+        String layer = "package p; import net.minecraft.client.Minecraft; import net.minecraft.network.chat.Component;\n"
+                + "import com.mojang.brigadier.context.CommandContext;\n"
+                + "public final class Cmds implements ClientModInitializer {\n"
+                + "  static int ticks; static boolean on = true; static int size = 4;\n"
+                + "  public void onInitializeClient() {\n"
+                + "    ClientTickEvents.START_CLIENT_TICK.register(mc -> ticks++);\n"
+                + "    ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> { ticks = 0; });\n"
+                + "    ClientLifecycleEvents.CLIENT_STARTED.register(mc -> { on = true; });\n"
+                + "    ClientTickEvents.END_LEVEL_TICK.register(level -> { if (on) ticks++; });\n"
+                + "    ClientCommandRegistrationCallback.EVENT.register((dispatcher, ctx) -> dispatcher.register(\n"
+                + "      (LiteralArgumentBuilder) ClientCommands.literal(\"cmds\")\n"
+                + "        .executes(c -> { ((FabricClientCommandSource) c.getSource()).sendFeedback(Component.literal(\"ticks \" + ticks)); return 1; })\n"
+                + "        .then(ClientCommands.literal(\"on\").executes(c -> toggle((FabricClientCommandSource) c.getSource(), true)))\n"
+                + "        .then(ClientCommands.literal(\"size\").then(ClientCommands.argument(\"n\", IntegerArgumentType.integer(1, 16))\n"
+                + "          .executes(c -> { size = IntegerArgumentType.getInteger(c, \"n\"); return 1; })))\n"
+                + "        .then(ClientCommands.literal(\"say\").requires(s -> true).then(ClientCommands.argument(\"text\", StringArgumentType.greedyString())\n"
+                + "          .executes(c -> { c.getSource().sendError(Component.literal(StringArgumentType.getString(c, \"text\"))); return 1; })))));\n"
+                + "  }\n"
+                + "  static int toggle(FabricClientCommandSource src, boolean v) { on = v; src.sendFeedback(Component.literal(v ? \"on\" : \"off\")); return v ? 1 : 0; }\n"
+                + "}\n";
+        r = game(m, layer);
+        has(r, "tick_start: &[on_tick_start_0],", "START_CLIENT_TICK in the layer's table");
+        has(r, "disconnect: &[on_disconnect_0],", "DISCONNECT in the layer's table");
+        has(r, "started: &[on_started_0],", "CLIENT_STARTED in the layer's table");
+        has(r, "level_tick_end: &[on_level_tick_0],", "END_LEVEL_TICK in the layer's table");
+        has(r, "..JFabricEvents::NONE\n};", "events left out are empty");
+        has(r, "pub fn fabric_frame(game: &mut crate::game::Game<'_>) {", "CLIENT_STARTED takes the frame hook");
+        has(r, "JCmdNode::literal(\"cmds\").executes(fabric_cmd_0_run)", "root literal with executes");
+        has(r, ".then(JCmdNode::literal(\"on\").executes(fabric_cmd_1))", "literal child whose executes returns a value");
+        has(r, "JCmdNode::argument(\"n\", JArgType::Int(1, 16))", "integer argument with bounds");
+        has(r, "JCmdNode::argument(\"text\", JArgType::Greedy)", "greedy string argument");
+        has(r, "j_cmd_arg_int(\"n\")", "getInteger reads the parsed argument");
+        has(r, "j_cmd_arg_string(\"text\")", "getString reads the parsed argument");
+        has(r, "pub fn fabric_cmd_1(game: &mut crate::game::Game<'_>) -> i32 {", "an executes returning a value keeps it");
+        has(r, "pub fn cmds_toggle(game: &mut crate::game::Game<'_>, v: bool) -> i32 {", "a command source parameter needs no Rust value");
+        has(r, "pub fn fabric_command(game: &mut crate::game::Game<'_>, command: &str) -> bool {", "command hook entry point");
+        has(r, "pub fn j_cmd_run(", "the layer's command engine is shipped");
+        has(r, "with_style(", "sendError is red");
+
         System.out.println(bad == 0 ? "  ok: all " + total + " translation checks right" : "  FAIL: " + bad + " of " + total + " translation checks wrong");
         if (bad > 0) System.exit(1);
     }

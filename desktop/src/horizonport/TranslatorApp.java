@@ -28,7 +28,9 @@ import java.util.stream.Stream;
  * mappings/horizon-mappings.json, horizon-shaderport.exe, logo.png, donate.json.
  *
  *   --selftest <mod.jar> <pack.zip> <out folder>   runs both converters without the window
- *   --screenshot <file.png> [tab number]           saves a picture of the window and exits
+ *   --make-mod <spec.json> <out folder> [game folder]  makes a mod as the "Make a mod" tab does (and installs it)
+ *   --screenshot <file.png> [tab number] [example] saves a picture of the window and exits (example: fills
+ *                                                  the "Make a mod" tab from that kit example)
  */
 public final class TranslatorApp {
     static final String REPO_URL = "https://github.com/merenotnoonereal/Horizon-Translator";
@@ -56,6 +58,8 @@ public final class TranslatorApp {
     JTextArea log;
     JPanel resultPanel;
     Path lastResult;
+    ModKitPanel kit;
+    JComponent page;
 
     TranslatorApp(Path appDir) {
         this.appDir = appDir;
@@ -72,6 +76,12 @@ public final class TranslatorApp {
             System.out.println("newer one available: " + (r != null && have != null && Updates.newer(r.version(), have)));
             System.exit(0);
         }
+        if (args.length >= 3 && args[0].equals("--make-mod")) { // what "Make a mod" > Make mod does, without the window
+            Result r = ModKitPanel.make(appDir, Json.map(Json.parse(Text.read(Path.of(args[1])))), Path.of(args[2]),
+                    args.length >= 4 ? Path.of(args[3]) : null);
+            System.out.println(r.ok() + " | " + r.title() + " | " + r.where());
+            System.exit(r.ok() ? 0 : 1);
+        }
         if (args.length >= 4 && args[0].equals("--selftest")) {
             System.exit(selfTest(appDir, Path.of(args[1]), Path.of(args[2]), Path.of(args[3])));
         }
@@ -80,6 +90,7 @@ public final class TranslatorApp {
         SwingUtilities.invokeAndWait(app::build);
         if (args.length >= 2 && args[0].equals("--screenshot")) {
             if (args.length >= 3) SwingUtilities.invokeAndWait(() -> app.tabs.setSelectedIndex(Integer.parseInt(args[2])));
+            if (args.length >= 4) SwingUtilities.invokeAndWait(() -> app.kit.useExample(Integer.parseInt(args[3])));
             Thread.sleep(args.length >= 3 ? 7000 : 800); // time for the Support tab's fetch
             SwingUtilities.invokeAndWait(() -> app.saveScreenshot(Path.of(args[1])));
             System.exit(0);
@@ -107,10 +118,12 @@ public final class TranslatorApp {
         root.add(header(), BorderLayout.NORTH);
 
         JPanel body = new FitWidth();
+        page = body;
         body.setBorder(new EmptyBorder(16, 20, 20, 20));
         JPanel update = updateBanner();
         body.add(update);
-        body.add(notice("Experimental: don't expect a finished mod.",
+        JComponent experimental;
+        body.add(experimental = notice("Experimental: don't expect a finished mod.",
                 "The mod converter is a helper, not a one-click port. Most mods come out only partly working: anything "
                         + "built on Minecraft features Horizon doesn't have yet is switched off and listed in PORTING.md for you to finish. "
                         + "Only a mod that converts fully comes out as a ready-to-install .hnmod file."));
@@ -121,9 +134,13 @@ public final class TranslatorApp {
         };
         tabs.setFont(tabs.getFont().deriveFont(Font.BOLD, 14f));
         tabs.addTab("Mods", onlyWhenOpen(modPanel()));
-        tabs.addTab("Shader packs", onlyWhenOpen(shaderPanel()));
+        tabs.addTab("Shader packs", onlyWhenOpen(shaderTab()));
+        kit = new ModKitPanel(this);
+        tabs.addTab("Make a mod", onlyWhenOpen(kit.panel()));
+        tabs.addTab("Get mods", onlyWhenOpen(GetMods.panel(this)));
         tabs.addTab("Support me ♥", onlyWhenOpen(Support.panel(appDir)));
-        tabs.addChangeListener(e -> { tabs.revalidate(); tabs.repaint(); });
+        // The converter's warning is about converted mods: only on the Mods tab.
+        tabs.addChangeListener(e -> { experimental.setVisible(tabs.getSelectedIndex() == 0); tabs.revalidate(); tabs.repaint(); });
         tabs.setAlignmentX(0);
         body.add(tabs);
         body.add(Box.createVerticalStrut(10));
@@ -194,7 +211,7 @@ public final class TranslatorApp {
         JLabel support = label("<html><u>Support me ♥</u></html>", ACCENT, 13f, true);
         support.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         support.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override public void mouseClicked(java.awt.event.MouseEvent e) { tabs.setSelectedIndex(2); }
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) { tabs.setSelectedIndex(tabs.getTabCount() - 1); }
         });
         links.add(support);
         h.add(links, BorderLayout.EAST);
@@ -240,14 +257,33 @@ public final class TranslatorApp {
         return p;
     }
 
+    /** The Shader packs tab: the converter, then the list of packs that convert well. */
+    JComponent shaderTab() {
+        JPanel t = column();
+        t.add(shaderPanel());
+        t.add(Box.createVerticalStrut(12));
+        t.add(ShaderList.panel(this));
+        return t;
+    }
+
+    void choosePack(File f) {
+        packFile = f;
+        packChosen.setText(f.getName() + "  ·  " + String.format(Locale.ROOT, "%.1f MB", f.length() / 1048576.0));
+        convertPack.setEnabled(true);
+    }
+
+    /** Convert a pack picked from the "Best shader packs" list, and bring the progress line into view. */
+    void convertPackFile(File f) {
+        if (progress.isVisible()) return; // one conversion at a time
+        choosePack(f);
+        convertPackClicked();
+        SwingUtilities.invokeLater(() -> status.scrollRectToVisible(new Rectangle(0, 0, status.getWidth(), status.getHeight())));
+    }
+
     JComponent shaderPanel() {
         JPanel p = card();
         packChosen = label(" ", ACCENT, 14f, true);
-        p.add(dropZone("Drop a shader pack .zip here", "Iris or OptiFine format · or click to choose a file", ".zip", f -> {
-            packFile = f;
-            packChosen.setText(f.getName() + "  ·  " + String.format(Locale.ROOT, "%.1f MB", f.length() / 1048576.0));
-            convertPack.setEnabled(true);
-        }, packChosen));
+        p.add(dropZone("Drop a shader pack .zip here", "Iris or OptiFine format · or click to choose a file", ".zip", this::choosePack, packChosen));
         p.add(Box.createVerticalStrut(12));
         p.add(wrapLabel("Works with packs like BSL, Complementary, Bliss, Photon, Noble, Mellow, MakeUp, Solas and Super Duper Vanilla. "
                 + "Big packs take a few minutes.", MUTED));
@@ -363,6 +399,7 @@ public final class TranslatorApp {
     void run(String what, Job job) {
         convertMod.setEnabled(false);
         convertPack.setEnabled(false);
+        if (kit != null && kit.make != null) kit.make.setEnabled(false);
         progress.setVisible(true);
         status.setText(what);
         status.setForeground(MUTED);
@@ -372,6 +409,7 @@ public final class TranslatorApp {
                 progress.setVisible(false);
                 convertMod.setEnabled(modFile != null);
                 convertPack.setEnabled(packFile != null);
+                if (kit != null && kit.make != null) kit.make.setEnabled(true);
                 Result r;
                 try { r = get(); } catch (Exception e) {
                     Throwable c = e.getCause() != null ? e.getCause() : e;
@@ -406,7 +444,9 @@ public final class TranslatorApp {
         Path work = Files.createTempDirectory("horizon-translator-");
         try {
             Path bundle = work.resolve("bundle");
-            List<String> cmd = new ArrayList<>(List.of(javaExe().toString(), "-Dhorizonport.inprocess=true",
+            List<String> cmd = new ArrayList<>(List.of(javaExe().toString(),
+                    // UTF-8 output whatever the Windows language; the log is read back as UTF-8 (issue #2).
+                    "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Dhorizonport.inprocess=true",
                     "-Dhorizonport.srcdir=" + work.resolve("decompiled"), "-cp", classpath(appDir), "horizonport.Main",
                     "port", jar.toString(), "--horizon-src", appDir.resolve("horizon-src.zip").toString(),
                     "--mappings", appDir.resolve("mappings/horizon-mappings.json").toString(), "--out", bundle.toString()));
@@ -469,7 +509,7 @@ public final class TranslatorApp {
             Process p = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true).redirectOutput(logFile.toFile()).start();
             boolean done = p.waitFor(minutes, TimeUnit.MINUTES);
             if (!done) { p.descendants().forEach(ProcessHandle::destroyForcibly); p.destroyForcibly(); p.waitFor(10, TimeUnit.SECONDS); }
-            return new Proc(done ? p.exitValue() : -1, Files.readString(logFile, StandardCharsets.UTF_8), !done);
+            return new Proc(done ? p.exitValue() : -1, text(Files.readAllBytes(logFile)), !done);
         } finally {
             Files.deleteIfExists(logFile);
         }
@@ -528,7 +568,10 @@ public final class TranslatorApp {
         } catch (IOException ignored) {}
     }
 
-    static String read(Path p) throws IOException { return Files.isRegularFile(p) ? Files.readString(p, StandardCharsets.UTF_8) : ""; }
+    static String read(Path p) throws IOException { return Files.isRegularFile(p) ? text(Files.readAllBytes(p)) : ""; }
+
+    /** UTF-8 that never throws: bytes that aren't UTF-8 become U+FFFD instead of a MalformedInputException. */
+    static String text(byte[] b) { return new String(b, StandardCharsets.UTF_8); }
 
     // ------------------------------------------------------------------ small UI helpers
 
@@ -800,8 +843,20 @@ public final class TranslatorApp {
 
     void saveScreenshot(Path png) {
         try {
-            BufferedImage img = new BufferedImage(frame.getWidth(), frame.getHeight(), BufferedImage.TYPE_INT_RGB);
-            frame.getRootPane().paint(img.getGraphics());
+            BufferedImage img;
+            if (Boolean.getBoolean("shot.full")) { // the whole page, not just what the window shows
+                page.setSize(page.getWidth(), page.getPreferredSize().height);
+                page.doLayout();
+                page.validate();
+                img = new BufferedImage(page.getWidth(), page.getHeight(), BufferedImage.TYPE_INT_RGB);
+                Graphics g = img.getGraphics();
+                g.setColor(BG);
+                g.fillRect(0, 0, img.getWidth(), img.getHeight());
+                page.paint(g);
+            } else {
+                img = new BufferedImage(frame.getWidth(), frame.getHeight(), BufferedImage.TYPE_INT_RGB);
+                frame.getRootPane().paint(img.getGraphics());
+            }
             ImageIO.write(img, "png", png.toFile());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -843,7 +898,8 @@ public final class TranslatorApp {
         }
 
         static String inline(String s) {
-            return escape(s).replaceAll("\\*\\*([^*]+)\\*\\*", "<b>$1</b>").replaceAll("`([^`]+)`", "<code>$1</code>");
+            return escape(s).replaceAll("\\*\\*([^*]+)\\*\\*", "<b>$1</b>").replaceAll("`([^`]+)`", "<code>$1</code>")
+                    .replaceAll("\\[([^\\]]+)\\]\\((https?://[^)\\s]+)\\)", "<a href=\"$2\">$1</a>");
         }
     }
 }

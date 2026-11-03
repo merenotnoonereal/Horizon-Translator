@@ -1,0 +1,10 @@
+{
+  "name": "Break Reminder",
+  "id": "break_reminder",
+  "version": "1.0.0",
+  "description": "Says hello when you join a world and reminds you to take a break.",
+  "author": "",
+  "welcome": ["Welcome back! You're in the {dimension}."],
+  "timers": [{"every": 1800, "text": ["You've played for a while: stand up, stretch and drink some water."]}],
+  "commands": [{"name": "breaktime", "action": "say", "text": ["Breaks every 30 minutes. Turn them off in Options > Mods > {name}."]}]
+}

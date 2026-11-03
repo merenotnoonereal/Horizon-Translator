@@ -24,7 +24,7 @@ final class NativeCheck {
     private NativeCheck() {}
 
     /** The types the stub carries: Horizon's own (as empty structs or copies) and std's. */
-    private static final Set<String> KNOWN = Set.of("HudBatch", "Corners", "NativePlayer", "NativeMod", "NativeStack",
+    private static final Set<String> KNOWN = Set.of("HudBatch", "Corners", "Corner", "NativePlayer", "NativeMod", "NativeStack",
             "Option", "Vec", "String", "PathBuf", "Duration", "Result", "Self");
     private static final Pattern STRUCT = Pattern.compile("((?:[ \\t]*(?:#\\[[^\\n]*\\]|///[^\\n]*)\\n)*)pub\\(crate\\) struct (\\w+) \\{\\n(.*?)\\n\\}", Pattern.DOTALL);
     private static final Pattern FN = Pattern.compile("pub\\(super\\) fn (native_\\w+)\\s*\\((.*?)\\)\\s*(->\\s*[^{]+?)?\\s*\\{", Pattern.DOTALL);
@@ -357,7 +357,7 @@ final class NativeCheck {
         }
         if (dirs.size() != 1) throw new IllegalArgumentException("expected one mod under " + mixins + ", found " + dirs.size());
         Path dir = dirs.get(0).toAbsolutePath();
-        List<Map<String, String>> sections = sections(Files.readString(dir.resolve("horizon-mixin.toml")));
+        List<Map<String, String>> sections = sections(Text.read(dir.resolve("horizon-mixin.toml")));
 
         StringBuilder mods = new StringBuilder();
         List<String> skipped = new ArrayList<>();
@@ -386,7 +386,7 @@ final class NativeCheck {
         int missing = 0;
         for (String[] d : RustTranslator.STATE_DECLS) {
             Path f = crates.resolve(d[0]);
-            if (!Files.isRegularFile(f) || !Files.readString(f, StandardCharsets.UTF_8).replace("\r\n", "\n").contains("\n" + d[1])) {
+            if (!Files.isRegularFile(f) || !Text.read(f).replace("\r\n", "\n").contains("\n" + d[1])) {
                 System.out.println("  Horizon changed: `" + d[1].strip() + "` isn't in " + d[0]);
                 missing++;
             }
@@ -395,7 +395,7 @@ final class NativeCheck {
             System.out.println("The state the translated code reads isn't all in this Horizon: regenerate the bundle for it.");
             return 1;
         }
-        String hooks = Files.readString(hooksFile, StandardCharsets.UTF_8);
+        String hooks = Text.read(hooksFile);
         StringBuilder types = new StringBuilder(), fns = new StringBuilder();
         Matcher m = STRUCT.matcher(hooks);
         while (m.find()) {
@@ -414,7 +414,11 @@ final class NativeCheck {
         String lib = "// Written by horizon-port check: Horizon's native-hook helpers (signatures from " + path(hooksFile) + "),\n"
                 + "// with the bundle's modules and hook-point helpers where horizon-mixins puts them. Only for `cargo check`.\n"
                 + "#![allow(dead_code, unused, clippy::all)]\nextern crate self as horizon_client;\nextern crate self as horizon_assets;\n\n"
-                + "pub mod hud {\n    pub struct HudBatch;\n    pub struct HudAtlas;\n}\npub mod extras_hud {\n    pub struct Corners;\n}\n\n" + TEXT_TYPES
+                + "pub mod hud {\n    pub struct HudBatch;\n    pub struct HudAtlas;\n}\npub mod extras_hud {\n    pub struct Corners;\n"
+                + "    impl Corners {\n        pub fn place(&mut self, corner: horizon_client::extras::Corner, w: f32, h: f32) -> (f32, f32) {\n"
+                + "            unimplemented!()\n        }\n    }\n}\n"
+                + "pub mod extras {\n    #[derive(Clone, Copy, Debug, PartialEq, Eq)]\n    pub enum Corner {\n        TopLeft,\n        TopRight,\n"
+                + "        BottomLeft,\n        BottomRight,\n    }\n}\n\n" + TEXT_TYPES
                 + STATE_TYPES
                 + "pub mod game {\n    use horizon_client::{first_person::Hand, items::ItemStack, motion::PlayerMotion, settings::Settings};\n\n"
                 + "    /// The fields the translated code reads, with Horizon's types (checked against its source above).\n"
@@ -443,7 +447,7 @@ final class NativeCheck {
                 + "    mod potions {\n        pub(super) struct PotionState {\n            pub(super) effects: PlayerEffects,\n        }\n"
                 + "        pub struct PlayerEffects;\n        pub struct EffectInstance;\n        impl PlayerEffects {\n"
                 + "            pub fn get(&self, id: &str) -> Option<&EffectInstance> {\n                unimplemented!()\n            }\n        }\n    }\n\n"
-                + "    pub mod native_hooks {\n        use super::Game;\n        use horizon_client::{extras_hud::Corners, hud::HudBatch};\n"
+                + "    pub mod native_hooks {\n        use super::Game;\n        use horizon_client::{extras::Corner, extras_hud::Corners, hud::HudBatch};\n"
                 + "        use std::{path::PathBuf, time::Duration};\n\n"
                 + indent(types.toString().strip(), "        ") + "\n\n        impl Game<'_> {\n" + fns + "        }\n    }\n\n" + mods + "}\n";
         Path crate = bundle.resolve("target").resolve("horizon-check");
@@ -482,6 +486,10 @@ final class NativeCheck {
             System.out.println("  not checked: horizon-mixins plan (the tool isn't installed; the launcher installs it on its first native build, or set HORIZON_MIXINS)");
             return 0;
         }
+        if (horizonSrc.getFileSystem() != java.nio.file.FileSystems.getDefault()) {
+            System.out.println("  not checked: horizon-mixins plan (it needs Horizon's source unpacked, not in a .zip; the launcher's build runs it)");
+            return 0;
+        }
         Path out = bundle.resolve("target").resolve("horizon-plan.json").toAbsolutePath();
         Files.createDirectories(out.getParent());
         ProcessBuilder pb = new ProcessBuilder(tool.toString(), "plan", "--workspace", horizonSrc.toAbsolutePath().toString(),
@@ -502,7 +510,7 @@ final class NativeCheck {
     }
 
     /** $HORIZON_MIXINS, else the launcher's copy at the revision the bundle names (any copy when it names none). */
-    private static Path mixinsTool(Path bundle) throws IOException {
+    static Path mixinsTool(Path bundle) throws IOException {
         String env = System.getenv("HORIZON_MIXINS");
         if ("none".equals(env)) return null; // the test fixture's mappings are made up
         if (env != null && Files.isRegularFile(Path.of(env))) return Path.of(env);
@@ -516,7 +524,7 @@ final class NativeCheck {
         String rev = "";
         Path compat = bundle.resolve("compatibility.json");
         if (Files.isRegularFile(compat)) {
-            Matcher m = Pattern.compile("\"horizon_mixins_revision\"\\s*:\\s*\"([0-9a-f]{12})").matcher(Files.readString(compat, StandardCharsets.UTF_8));
+            Matcher m = Pattern.compile("\"horizon_mixins_revision\"\\s*:\\s*\"([0-9a-f]{12})").matcher(Text.read(compat));
             if (m.find()) rev = m.group(1);
         }
         for (Path root : roots) {

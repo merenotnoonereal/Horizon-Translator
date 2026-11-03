@@ -24,7 +24,7 @@ final class Mappings {
     static Mappings load(List<Path> files) throws IOException {
         Mappings m = new Mappings();
         for (Path f : files) {
-            Map<String, Object> root = Json.map(Json.parse(Files.readString(f)));
+            Map<String, Object> root = Json.map(Json.parse(Text.read(f)));
             merge(m.fabricEvents, root.get("fabricEvents"));
             merge(m.methods, root.get("methods"));
             merge(m.superclasses, root.get("superclasses"));
