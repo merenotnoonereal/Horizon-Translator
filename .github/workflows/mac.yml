@@ -29,12 +29,16 @@ jobs:
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
+
+      - name: Line endings
+        # Files uploaded through GitHub's website keep Windows line endings (CRLF), which bash can't run.
+        run: find . -name '*.sh' -not -path './.git/*' -exec perl -pi -e 's/\r$//' {} +
 
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
