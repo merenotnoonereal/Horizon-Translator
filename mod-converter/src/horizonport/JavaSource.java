@@ -41,7 +41,7 @@ final class JavaSource {
         JavaSource js = new JavaSource(root);
         try (Stream<Path> walk = Files.walk(root)) {
             for (Path f : (Iterable<Path>) walk.filter(p -> p.toString().endsWith(".java"))::iterator) {
-                String text = Files.readString(f, StandardCharsets.UTF_8);
+                String text = Text.read(f);
                 Matcher m = PACKAGE.matcher(text);
                 String pkg = m.find() ? m.group(1).replace('.', '/') + "/" : "";
                 String name = f.getFileName().toString();
@@ -126,7 +126,7 @@ final class JavaSource {
      */
     String defaultKey(String keyName) throws IOException {
         for (Path f : files.values()) {
-            Matcher m = KEY_DEFAULT.matcher(Files.readString(f, StandardCharsets.UTF_8));
+            Matcher m = KEY_DEFAULT.matcher(Text.read(f));
             while (m.find()) {
                 if (!m.group(1).equals(keyName)) continue;
                 String name = m.group(2) != null ? m.group(2).toLowerCase() : glfwName(Integer.parseInt(m.group(3)));
@@ -184,7 +184,7 @@ final class JavaSource {
         if (f == null) return null;
         String[] t = texts.get(f);
         if (t == null) {
-            String code = Files.readString(f, StandardCharsets.UTF_8).replace("\r\n", "\n");
+            String code = Text.read(f).replace("\r\n", "\n");
             t = new String[] {code, mask(code)};
             texts.put(f, t);
         }

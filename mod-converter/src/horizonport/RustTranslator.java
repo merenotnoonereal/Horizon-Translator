@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -317,7 +318,7 @@ final class RustTranslator {
         if (!Files.isDirectory(assets)) return out;
         try (Stream<Path> walk = Files.walk(assets, 3)) {
             for (Path f : (Iterable<Path>) walk.filter(p -> p.getFileName().toString().equals("en_us.json") && p.getParent().getFileName().toString().equals("lang"))::iterator) {
-                if (Json.parse(Files.readString(f, StandardCharsets.UTF_8)) instanceof Map<?, ?> m)
+                if (Json.parse(Text.read(f)) instanceof Map<?, ?> m)
                     m.forEach((k, v) -> { if (v instanceof String sv) out.put(String.valueOf(k), sv); });
             }
         } catch (IOException | RuntimeException e) {
@@ -409,14 +410,14 @@ final class RustTranslator {
         t.lang = lang(root);
         t.poseHooks = hooks;
         Path fmj = root.resolve("fabric.mod.json");
-        if (Files.isRegularFile(fmj) && Json.parse(Files.readString(fmj, StandardCharsets.UTF_8)) instanceof Map<?, ?> fm) t.fabricMod = fm;
+        if (Files.isRegularFile(fmj) && Json.parse(Text.read(fmj)) instanceof Map<?, ?> fm) t.fabricMod = fm;
         t.runtimePath = "crate::game::port_" + modId;
         try (Stream<Path> walk = Files.walk(root)) {
             for (Path f : (Iterable<Path>) walk.filter(p -> p.toString().endsWith(".java")).sorted()::iterator) {
                 String rel = root.relativize(f).toString().replace('\\', '/');
                 Unit u;
                 try {
-                    u = JavaParser.parseUnit(Files.readString(f, StandardCharsets.UTF_8), rel);
+                    u = JavaParser.parseUnit(Text.read(f), rel);
                 } catch (JavaParser.Unsupported e) {
                     t.unparsed.add(new Item(rel, "file", false, "couldn't be read: " + e.getMessage(), rel, 1));
                     continue;
@@ -553,6 +554,8 @@ final class RustTranslator {
         if (java.util.regex.Pattern.compile("\\bJHttp(Client|Request|Response)\\b|\\bj_url_encode\\(").matcher(rust + game).find()) rust = rust + "\n" + resource("jhttp.rs");
         if (java.util.regex.Pattern.compile("\\bJFuture\\b").matcher(rust + game).find()) rust = rust + "\n" + resource("jfuture.rs");
         if (java.util.regex.Pattern.compile("\\bJIter\\b").matcher(rust + game).find()) rust = rust + "\n" + resource("jiter.rs");
+        // The Fabric API layer: events and client commands (game side: it runs on Horizon's Game).
+        if (java.util.regex.Pattern.compile("\\bJ_FABRIC\\b|\\bJCmdNode\\b").matcher(game).find()) game = game + "\n" + resource("jfabricapi.rs");
         items = coveredElsewhere(items);
         return new Result(rust, items, config, game.isBlank() ? null : game, new ArrayList<>(handlers), new ArrayList<>(new TreeSet<>(notes)));
     }
@@ -3079,9 +3082,22 @@ final class RustTranslator {
             } else if (v.type().is("path")) {
                 fmt.append("{}");
                 args.add(paren(v.code()) + ".display()");
+            } else if ((v.type().is("map") && plainText(v.type().key()) && plainText(v.type().elem()))
+                    || ((v.type().is("list") || v.type().is("set")) && plainText(v.type().elem()))) {
+                // Java's AbstractMap / AbstractCollection toString: {a=1, b=2} and [a, b].
+                boolean map = v.type().is("map");
+                String join = map ? ".iter().map(|(k, v)| format!(\"{}={}\", k, v)).collect::<Vec<_>>().join(\", \")"
+                        : ".iter().map(|v| v.to_string()).collect::<Vec<_>>().join(\", \")";
+                fmt.append(map ? "{{{}}}" : "[{}]");
+                args.add("staticobj".equals(v.place()) ? withRead(v, join) : paren(v.code()) + join);
             } else throw new JavaParser.Unsupported("a " + v.type() + " turned into text");
         }
         return new Ex("format!(\"" + fmt + "\"" + (args.isEmpty() ? "" : ", " + String.join(", ", args)) + ")", JT.STRING);
+    }
+
+    /** A map key or collection element that prints in Rust as Java prints it: whole numbers, booleans, chars, strings. */
+    private static boolean plainText(JT t) {
+        return t != null && (t.is("string") || t.is("ident") || t.is("prim") && !t.floating());
     }
 
     /** Java's + is left to right: "a" + 1 + 2 is "a12", but 1 + 2 + "a" is "3a". */
@@ -3203,7 +3219,7 @@ final class RustTranslator {
             }
             case "game", "player", "gfx", "font", "delta", "modkey", "vkey", "screen", "level", "options",
                     "stack", "item", "hand", "arm", "vec3d", "inventory", "swinganim", "useanim", "gamemode", "dispatcher", "avatar", "skin",
-                    "resolver", "renderstate", "text", "gui":
+                    "resolver", "renderstate", "text", "gui", "cmdsrc":
                 return gameCall(t, c, x);
             case "ident":
                 return identCall(t, c, x);
@@ -3734,6 +3750,28 @@ final class RustTranslator {
         for (Expr e : c.args()) a.add(ex(e, x));
         int n = a.size();
         switch (k) {
+            case "IntegerArgumentType.getInteger": case "LongArgumentType.getLong": case "FloatArgumentType.getFloat":
+            case "DoubleArgumentType.getDouble": case "BoolArgumentType.getBool": case "StringArgumentType.getString": {
+                // An argument of the command the Fabric API layer is running.
+                if (!gameMode || n != 2 || !a.get(0).type().is("cmdsrc") || !a.get(1).type().is("string")) return unknown(k, x);
+                String getter = switch (c.name()) {
+                    case "getInteger" -> "int";
+                    case "getLong" -> "long";
+                    case "getFloat" -> "float";
+                    case "getDouble" -> "double";
+                    case "getBool" -> "bool";
+                    default -> "string";
+                };
+                JT t = switch (getter) {
+                    case "int" -> JT.INT;
+                    case "long" -> JT.LONG;
+                    case "float" -> JT.FLOAT;
+                    case "double" -> JT.DOUBLE;
+                    case "bool" -> JT.BOOL;
+                    default -> JT.STRING;
+                };
+                return new Ex("j_cmd_arg_" + getter + "(" + strArg(a.get(1)) + ")", t, true, null);
+            }
             case "Minecraft.getInstance":
                 if (gameMode && n == 0) return new Ex("game", GAME, true, "alias");
                 return unknown(k, x);
@@ -6051,20 +6089,25 @@ final class RustTranslator {
             case "AvatarRenderer", "PlayerRenderer" -> new JT("avatar", "AvatarRenderer", null);
             case "ItemStackRenderState" -> RENDERSTATE;
             case "ItemModelResolver" -> new JT("resolver", "ItemModelResolver", null);
+            // A command's context and source: the command the Fabric API layer is running (no Rust value of its own).
+            case "CommandContext", "FabricClientCommandSource", "CommandSourceStack", "ServerCommandSource", "SharedSuggestionProvider" -> CMDSRC;
             default -> null;
         };
     }
 
     /** Game objects a game-side function gets without a parameter of its own: game, batch. */
     private static boolean implicitGame(JT t) {
-        return t.is("game") || t.is("gfx") || t.is("font") || t.is("delta");
+        return t.is("game") || t.is("gfx") || t.is("font") || t.is("delta") || t.is("cmdsrc");
     }
+
+    static final JT CMDSRC = new JT("cmdsrc", "FabricClientCommandSource", null);
 
     private static String implicitName(JT t) {
         return switch (t.k()) {
             case "game" -> "game";
             case "gfx" -> "batch";
             case "font" -> "font";
+            case "cmdsrc" -> "hp_cmd";
             default -> "delta";
         };
     }
@@ -6088,6 +6131,7 @@ final class RustTranslator {
             case "arm" -> "HumanoidArm";
             case "vec3d" -> "Vec3";
             case "inventory" -> "Inventory";
+            case "cmdsrc" -> "FabricClientCommandSource";
             default -> t.toString();
         };
     }
@@ -6226,6 +6270,31 @@ final class RustTranslator {
             case "font.width/1": {
                 Ex s = valueTo(a.get(0), JT.STRING, x);
                 return new Ex("{ let hp_text: String = " + s.code() + "; game.native_text_width(&hp_text) as i32 }", JT.INT);
+            }
+            case "cmdsrc.getSource/0":
+                return new Ex("hp_cmd", CMDSRC, true, "alias");
+            case "cmdsrc.getClient/0":
+                return new Ex("game", GAME, true, "alias");
+            case "cmdsrc.getPlayer/0": case "cmdsrc.getPlayerOrException/0":
+                return new Ex("game.native_player()", PLAYER, true, null);
+            case "cmdsrc.getInput/0":
+                return new Ex("j_cmd_input()", JT.STRING, true, null);
+            case "cmdsrc.sendFeedback/1": case "cmdsrc.sendSystemMessage/1": case "cmdsrc.sendMessage/1":
+                return chat(a.get(0), x);
+            case "cmdsrc.sendSuccess/2": {
+                // The server source's (Supplier<Component>, broadcast): the message, in the player's chat.
+                Expr msg = a.get(0);
+                while (msg instanceof Cast cm) msg = cm.e();
+                if (msg instanceof Lambda sl && sl.params().isEmpty() && sl.body() instanceof Expr se) return chat(se, x);
+                throw new JavaParser.Unsupported("sendSuccess with a message that isn't a `() -> ..` lambda");
+            }
+            case "cmdsrc.sendError/1": case "cmdsrc.sendFailure/1": {
+                // Brigadier shows errors in red.
+                try {
+                    return chat(new Call(a.get(0), "withStyle", List.of(new Field(new Name("ChatFormatting"), "RED"))), x);
+                } catch (JavaParser.Unsupported e) {
+                    return chat(a.get(0), x);
+                }
             }
             case "modkey.consumeClick/0": case "modkey.wasPressed/0":
                 return new Ex("key_consume(" + t.code() + ")", JT.BOOL);
@@ -7069,6 +7138,8 @@ final class RustTranslator {
     /** Fabric event registrations: `ClientTickEvents.END_CLIENT_TICK.register(mc -> ...)`, HUD callbacks. */
     private void eventHandlers(StringBuilder b) {
         Map<String, Integer> counts = new HashMap<>();
+        cmdRoots.clear();
+        cmdCount = 0;
         for (Cls c : all) {
             if (c.mixin) continue;
             for (MethodDecl m : c.d.methods) {
@@ -7079,6 +7150,10 @@ final class RustTranslator {
                 });
                 for (Call call : regs) {
                     String hook = eventHook(call);
+                    if (hook.equals("commands")) {
+                        commandHandler(c, m, call, b);
+                        continue;
+                    }
                     int i = counts.merge(hook, 1, Integer::sum) - 1;
                     String fn = "on_" + hook + "_" + i;
                     String where = c.file + ":" + m.line;
@@ -7124,18 +7199,7 @@ final class RustTranslator {
                 partialHandler(c, h, eh.hook(), fn, where, doc, e.getMessage(), b);
             }
         }
-        List<Handler> joins = handlers.stream().filter(hd -> hd.hook().equals("join") && hd.ok()).toList();
-        if (!joins.isEmpty()) {
-            b.append("static JOINED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);\n\n");
-            b.append("/// Fabric's ClientPlayConnectionEvents.JOIN (and ClientPacketListener.handleLogin): run by the tick hook on the\n");
-            b.append("/// window's first tick with a player after none.\n");
-            b.append("pub fn join_check(game: &mut crate::game::Game<'_>) {\n");
-            b.append("    if !game.native_window() {\n        return;\n    }\n");
-            b.append("    let now = game.native_player().is_some();\n");
-            b.append("    if now == JOINED.swap(now, std::sync::atomic::Ordering::Relaxed) || !now {\n        return;\n    }\n");
-            for (Handler hd : joins) b.append("    ").append(hd.fn()).append("(game);\n");
-            b.append("}\n\n");
-        }
+        fabricLayer(b);
     }
 
     /**
@@ -7495,46 +7559,79 @@ final class RustTranslator {
         return found[0] == null ? "none" : callText(found[0]);
     }
 
+    /**
+     * The Fabric events the Fabric API layer (jfabricapi.rs) runs, as the mod's code names them (`Class.FIELD`), and
+     * the layer's name for each. Mojang and Yarn names both.
+     */
+    static final Map<String, String> FABRIC_EVENTS = Map.ofEntries(
+            Map.entry("ClientTickEvents.START_CLIENT_TICK", "tick_start"),
+            Map.entry("ClientTickEvents.END_CLIENT_TICK", "tick"),
+            Map.entry("ClientTickEvents.START_LEVEL_TICK", "level_tick_start"),
+            Map.entry("ClientTickEvents.END_LEVEL_TICK", "level_tick"),
+            Map.entry("ClientTickEvents.START_WORLD_TICK", "level_tick_start"),
+            Map.entry("ClientTickEvents.END_WORLD_TICK", "level_tick"),
+            Map.entry("ClientPlayConnectionEvents.JOIN", "join"),
+            Map.entry("ClientPlayConnectionEvents.DISCONNECT", "disconnect"),
+            Map.entry("ClientLifecycleEvents.CLIENT_STARTED", "started"),
+            Map.entry("HudRenderCallback.EVENT", "hud"),
+            Map.entry("ClientCommandRegistrationCallback.EVENT", "commands"));
+
+    /** The layer's events in JFabricEvents (Rust field, translator hook), in the order Fabric fires them. */
+    static final List<String[]> LAYER_EVENTS = List.of(new String[] {"started", "started"}, new String[] {"tick_start", "tick_start"},
+            new String[] {"join", "join"}, new String[] {"disconnect", "disconnect"}, new String[] {"level_tick_start", "level_tick_start"},
+            new String[] {"level_tick_end", "level_tick"}, new String[] {"tick_end", "tick"});
+
     private static String eventHook(Call call) {
-        if (call.name().equals("register") && call.args().size() == 1 && call.target() instanceof Field ef && ef.target() instanceof Name en) {
-            return switch (en.id() + "." + ef.name()) {
-                case "ClientTickEvents.END_CLIENT_TICK", "ClientTickEvents.START_CLIENT_TICK" -> "tick";
-                case "HudRenderCallback.EVENT" -> "hud";
-                case "ClientPlayConnectionEvents.JOIN" -> "join";
-                default -> null;
-            };
-        }
+        if (call.name().equals("register") && call.args().size() == 1 && call.target() instanceof Field ef && ef.target() instanceof Name en)
+            return FABRIC_EVENTS.get(en.id() + "." + ef.name());
         if (call.target() instanceof Name hn && (hn.id().equals("HudElementRegistry") || hn.id().equals("HudLayerRegistrationCallback"))
                 && Set.of("addLast", "addFirst", "attachElementBefore", "attachElementAfter").contains(call.name()) && !call.args().isEmpty())
             return "hud";
         return null;
     }
 
-    /** The handler as a method: tick gets the Minecraft, hud the GuiGraphics and DeltaTracker. */
-    private static MethodDecl handlerMethod(String hook, String fn, Expr handler) {
-        List<TypeRef> types = hook.equals("tick") ? List.of(new TypeRef("Minecraft", List.of(), 0))
-                : List.of(new TypeRef("GuiGraphics", List.of(), 0), new TypeRef("DeltaTracker", List.of(), 0));
+    /**
+     * What each event's handler gets, by position: a Minecraft type, "level" (the world, which has no Rust value of its
+     * own) or null (a value nothing here stands for: using it leaves the handler untranslated).
+     */
+    private static List<String> eventParams(String hook) {
+        return switch (hook) {
+            case "tick", "tick_start", "started" -> List.of("Minecraft");
+            case "level_tick", "level_tick_start" -> List.of("level");
+            case "join" -> Arrays.asList(null, null, "Minecraft");
+            case "disconnect" -> Arrays.asList(null, "Minecraft");
+            default -> List.of("GuiGraphics", "DeltaTracker");
+        };
+    }
+
+    private static final JT LEVEL = new JT("level", "ClientLevel", null);
+
+    /** The handler as a method, its parameters typed as the event passes them (eventParams). */
+    private MethodDecl handlerMethod(String hook, String fn, Expr handler) {
+        List<String> types = eventParams(hook);
         MethodDecl h = new MethodDecl();
         h.mods = Set.of("static");
         h.ret = new TypeRef("void", List.of(), 0);
         h.name = "\u0001" + fn;
         // Decompilers write `(EndTick) mc -> {...}`.
         while (handler instanceof Cast cast) handler = cast.e();
-        if (hook.equals("join")) {
-            // JOIN's (handler, sender, client): only the client means something here; the others are unknown names.
-            if (!(handler instanceof Lambda l) || l.params().size() != 3) throw new JavaParser.Unsupported("a join handler that isn't a lambda");
-            h.params.add(new Param(new TypeRef("Minecraft", List.of(), 0), l.params().get(2), false));
-            h.body = l.body() instanceof Block blk ? blk : new Block(List.of(new ExprStmt((Expr) l.body())));
-            return h;
-        }
         if (handler instanceof Lambda l) {
             if (l.params().size() != types.size()) throw new JavaParser.Unsupported("a handler taking " + l.params().size() + " values");
-            for (int i = 0; i < types.size(); i++) h.params.add(new Param(types.get(i), l.params().get(i), false));
+            Map<String, Var> aliases = new HashMap<>();
+            for (int i = 0; i < types.size(); i++) {
+                String t = types.get(i), name = l.params().get(i);
+                if (t == null) continue;
+                if (t.equals("level")) aliases.put(name, new Var(name, "level", LEVEL, "alias", -1));
+                else h.params.add(new Param(new TypeRef(t, List.of(), 0), name, false));
+            }
+            if (!aliases.isEmpty()) preAliases.put(h, aliases);
             h.body = l.body() instanceof Block blk ? blk : new Block(List.of(new ExprStmt((Expr) l.body())));
         } else if (handler instanceof MethodRef r && r.target() instanceof Name cls) {
+            if (types.stream().anyMatch(t -> t == null || t.equals("level")))
+                throw new JavaParser.Unsupported("a `" + hook + "` handler given as a method reference (its values have no Rust form)");
             List<Expr> args = new ArrayList<>();
             for (int i = 0; i < types.size(); i++) {
-                h.params.add(new Param(types.get(i), "arg" + i, false));
+                h.params.add(new Param(new TypeRef(types.get(i), List.of(), 0), "arg" + i, false));
                 args.add(new Name("arg" + i));
             }
             h.body = new Block(List.of(new ExprStmt(new Call(new Name(cls.id()), r.name(), args))));
@@ -7542,6 +7639,275 @@ final class RustTranslator {
             throw new JavaParser.Unsupported("a handler that isn't a lambda or a Class::method reference");
         }
         return h;
+    }
+
+    /**
+     * The table the Fabric API layer runs (J_FABRIC), and the functions the generator's hooks call: fabric_tick,
+     * fabric_frame, fabric_command.
+     */
+    private void fabricLayer(StringBuilder b) {
+        boolean events = false, started = false;
+        StringBuilder table = new StringBuilder();
+        for (String[] ev : LAYER_EVENTS) {
+            List<String> fns = handlers.stream().filter(hd -> hd.hook().equals(ev[1]) && hd.ok()).map(Handler::fn).toList();
+            if (fns.isEmpty()) continue;
+            events = true;
+            if (ev[1].equals("started")) started = true;
+            table.append("    ").append(ev[0]).append(": &[").append(String.join(", ", fns)).append("],\n");
+        }
+        if (events) {
+            b.append("/// The handlers the Fabric API layer (jfabricapi.rs) runs for each Fabric event.\n");
+            b.append("pub static J_FABRIC: JFabricEvents = JFabricEvents {\n").append(table).append("    ..JFabricEvents::NONE\n};\n\n");
+            b.append("/// Horizon's tick hook: Fabric's client tick, level tick, join and disconnect events.\n");
+            b.append("pub fn fabric_tick(game: &mut crate::game::Game<'_>) {\n    j_fabric_tick(game, &J_FABRIC);\n}\n\n");
+            if (started) {
+                b.append("/// Horizon's frame hook: Fabric's CLIENT_STARTED, on the window's first frame.\n");
+                b.append("pub fn fabric_frame(game: &mut crate::game::Game<'_>) {\n    j_fabric_frame(game, &J_FABRIC);\n}\n\n");
+            }
+        }
+        if (!cmdRoots.isEmpty()) {
+            b.append("/// The mod's client commands (Brigadier trees), for the Fabric API layer's command engine.\n");
+            b.append("pub fn j_fabric_commands() -> Vec<JCmdNode> {\n    vec![\n");
+            for (String r : cmdRoots) b.append("        ").append(r).append(",\n");
+            b.append("    ]\n}\n\n");
+            b.append("static J_FABRIC_COMMANDS: std::sync::LazyLock<Vec<JCmdNode>> = std::sync::LazyLock::new(j_fabric_commands);\n\n");
+            b.append("/// Horizon's command hook: whether the command was one of the mod's (it then ran).\n");
+            b.append("pub fn fabric_command(game: &mut crate::game::Game<'_>, command: &str) -> bool {\n");
+            b.append("    j_cmd_run(game, &J_FABRIC_COMMANDS, command)\n}\n\n");
+        }
+    }
+
+    // ---- client commands (Brigadier), for the layer's command engine ----
+
+    /** The Rust trees of the mod's commands, in the order registered. */
+    private final List<String> cmdRoots = new ArrayList<>();
+    private int cmdCount;
+
+    /** Builders whose static `literal` / `argument` start a command node. */
+    private static final Set<String> CMD_BUILDERS = Set.of("ClientCommands", "ClientCommandManager", "Commands", "CommandManager",
+            "LiteralArgumentBuilder", "RequiredArgumentBuilder");
+
+    /**
+     * `ClientCommandRegistrationCallback.EVENT.register((dispatcher, ctx) -> dispatcher.register(TREE))`: each tree in
+     * Rust for the layer, with each `executes` translated into a function of its own.
+     */
+    private void commandHandler(Cls c, MethodDecl m, Call reg, StringBuilder b) {
+        String where = c.file + ":" + m.line;
+        int handlersBefore = handlers.size(), countBefore = cmdCount;
+        Expr handler = reg.args().get(reg.args().size() - 1);
+        while (handler instanceof Cast cast) handler = cast.e();
+        StringBuilder out = new StringBuilder();
+        List<String> roots = new ArrayList<>();
+        try {
+            if (!(handler instanceof Lambda l) || l.params().isEmpty()) throw new JavaParser.Unsupported("a command registration that isn't a lambda");
+            List<Object[]> trees = new ArrayList<>();
+            dispatcherTrees(c, l.params().get(0), l.body(), trees, 0);
+            if (trees.isEmpty()) throw new JavaParser.Unsupported("no `dispatcher.register(..)` the converter could read");
+            for (Object[] t : trees) roots.add(cmdNode((Cls) t[0], (Expr) t[1], where, out));
+        } catch (JavaParser.Unsupported e) {
+            while (handlers.size() > handlersBefore) handlers.remove(handlers.size() - 1);
+            cmdCount = countBefore;
+            handlers.add(new Handler("command", "j_fabric_commands", false, "its command tree: " + e.getMessage(), where, List.of()));
+            return;
+        }
+        b.append(out);
+        cmdRoots.addAll(roots);
+    }
+
+    /** The trees passed to `dispatcher.register(..)` in `body`, also inside the mod's own methods it hands the dispatcher to. */
+    private void dispatcherTrees(Cls c, String dispatcher, Object body, List<Object[]> out, int depth) {
+        walk(body, n -> {
+            if (!(n instanceof Call call)) return;
+            if (call.name().equals("register") && call.args().size() == 1 && call.target() instanceof Name dn && dn.id().equals(dispatcher)) {
+                out.add(new Object[] {c, call.args().get(0)});
+                return;
+            }
+            int at = -1;
+            for (int i = 0; i < call.args().size(); i++) if (call.args().get(i) instanceof Name an && an.id().equals(dispatcher)) at = i;
+            if (at < 0 || depth >= 3) return;
+            Cls owner = call.target() == null ? c : call.target() instanceof Name tn ? classes.get(tn.id()) : null;
+            if (owner == null) return;
+            for (MethodDecl md : owner.methods.getOrDefault(call.name(), List.of())) {
+                if (md.body == null || md.params.size() != call.args().size()) continue;
+                dispatcherTrees(owner, md.params.get(at).name(), md.body, out, depth + 1);
+                return;
+            }
+        });
+    }
+
+    /** A Brigadier builder chain as a JCmdNode expression; its `executes` bodies go into `out`. */
+    private String cmdNode(Cls c, Expr e, String where, StringBuilder out) {
+        while (e instanceof Cast cast) e = cast.e();
+        if (!(e instanceof Call call)) throw new JavaParser.Unsupported("a command built from something other than builder calls");
+        List<Expr> a = call.args();
+        switch (call.name()) {
+            case "then":
+                if (a.size() == 1 && call.target() != null) return cmdNode(c, call.target(), where, out) + "\n            .then(" + cmdNode(c, a.get(0), where, out) + ")";
+                break;
+            case "executes":
+                if (a.size() == 1 && call.target() != null) return cmdNode(c, call.target(), where, out) + ".executes(" + cmdExec(c, a.get(0), where, out) + ")";
+                break;
+            case "requires":
+                if (a.size() == 1 && call.target() != null) {
+                    notes.add(c.d.name + ": a command's `requires(..)` check is left out (Horizon runs client commands for the player)");
+                    return cmdNode(c, call.target(), where, out);
+                }
+                break;
+            case "suggests":
+                if (call.target() != null) {
+                    notes.add(c.d.name + ": a command argument's suggestions are left out (no tab completion for mod commands)");
+                    return cmdNode(c, call.target(), where, out);
+                }
+                break;
+            case "literal":
+                if (a.size() == 1 && call.target() instanceof Name bn && CMD_BUILDERS.contains(bn.id())) return "JCmdNode::literal(" + cmdString(c, a.get(0)) + ")";
+                break;
+            case "argument":
+                if (a.size() == 2 && call.target() instanceof Name bn && CMD_BUILDERS.contains(bn.id()))
+                    return "JCmdNode::argument(" + cmdString(c, a.get(0)) + ", " + argType(a.get(1)) + ")";
+                break;
+            default:
+                break;
+        }
+        throw new JavaParser.Unsupported("a command builder's `" + call.name() + "(..)`");
+    }
+
+    /** A command or argument name: a string literal or a constant of the mod's. */
+    private String cmdString(Cls c, Expr e) {
+        if (e instanceof Lit l && l.kind().equals("string")) return literal(l).code();
+        if (e instanceof Name n) {
+            Cls owner = fieldOwner(n.id(), c, true);
+            FieldDecl f = owner == null ? null : owner.fields.get(n.id());
+            if (f != null && f.mods.contains("static") && f.mods.contains("final") && f.init instanceof Lit l && l.kind().equals("string")) return literal(l).code();
+        }
+        if (e instanceof Field fl && fl.target() instanceof Name tn && classes.containsKey(tn.id())) {
+            FieldDecl f = classes.get(tn.id()).fields.get(fl.name());
+            if (f != null && f.mods.contains("static") && f.mods.contains("final") && f.init instanceof Lit l && l.kind().equals("string")) return literal(l).code();
+        }
+        throw new JavaParser.Unsupported("a command name that isn't a fixed string");
+    }
+
+    /** Brigadier's argument types, with their bounds, as the layer's JArgType. */
+    private static String argType(Expr e) {
+        while (e instanceof Cast cast) e = cast.e();
+        if (!(e instanceof Call call) || !(call.target() instanceof Name tn)) throw new JavaParser.Unsupported("a command argument of a type it doesn't know");
+        List<Expr> a = call.args();
+        String k = tn.id() + "." + call.name();
+        return switch (k) {
+            case "IntegerArgumentType.integer" -> "JArgType::Int(" + bound(a, 0, "int", "i32::MIN") + ", " + bound(a, 1, "int", "i32::MAX") + ")";
+            case "LongArgumentType.longArg" -> "JArgType::Long(" + bound(a, 0, "long", "i64::MIN") + ", " + bound(a, 1, "long", "i64::MAX") + ")";
+            case "FloatArgumentType.floatArg" -> "JArgType::Float(" + bound(a, 0, "float", "f32::MIN") + ", " + bound(a, 1, "float", "f32::MAX") + ")";
+            case "DoubleArgumentType.doubleArg" -> "JArgType::Double(" + bound(a, 0, "double", "f64::MIN") + ", " + bound(a, 1, "double", "f64::MAX") + ")";
+            case "BoolArgumentType.bool" -> "JArgType::Bool";
+            case "StringArgumentType.word" -> "JArgType::Word";
+            case "StringArgumentType.string" -> "JArgType::Quotable";
+            case "StringArgumentType.greedyString" -> "JArgType::Greedy";
+            default -> throw new JavaParser.Unsupported("a command argument of type " + k + " (only numbers, booleans and strings are mapped)");
+        };
+    }
+
+    /** An argument type's bound: a number literal or MIN_VALUE / MAX_VALUE, else the type's own limit. */
+    private static String bound(List<Expr> a, int i, String kind, String dflt) {
+        if (i >= a.size()) return dflt;
+        Expr e = a.get(i);
+        if (e instanceof Field f && f.target() instanceof Name n && Set.of("Integer", "Long", "Float", "Double").contains(n.id())) {
+            String rust = switch (n.id()) {
+                case "Integer" -> "i32";
+                case "Long" -> "i64";
+                case "Float" -> "f32";
+                default -> "f64";
+            };
+            if (f.name().equals("MAX_VALUE")) return rust + "::MAX";
+            if (f.name().equals("MIN_VALUE")) return rust.startsWith("f") ? rust + "::MIN_POSITIVE" : rust + "::MIN";
+        }
+        if (e instanceof Lit l && Set.of("int", "long", "float", "double").contains(l.kind())) {
+            String t = l.text().replace("_", "");
+            boolean hex = t.toLowerCase().startsWith("0x") || t.toLowerCase().startsWith("-0x");
+            if (!hex) t = t.replaceAll("[fFdDlL]$", "");
+            if (kind.equals("float") || kind.equals("double")) {
+                if (hex) throw new JavaParser.Unsupported("a hexadecimal bound");
+                return Double.toString(Double.parseDouble(t));
+            }
+            if (l.kind().equals("float") || l.kind().equals("double")) throw new JavaParser.Unsupported("a fractional bound on a whole-number argument");
+            return hex ? t.replaceAll("[lL]$", "") : t;
+        }
+        throw new JavaParser.Unsupported("a command argument bound that isn't a fixed number");
+    }
+
+    /**
+     * An `executes(..)` as a Rust function the layer calls: the lambda (or `Class::method`) translated with its
+     * CommandContext standing for the running command. A body that ends in `return 1;` may be translated in part,
+     * like an event handler; one that can't be gets a stand-in that says so in chat.
+     */
+    private String cmdExec(Cls c, Expr f, String where, StringBuilder out) {
+        String fn = "fabric_cmd_" + (cmdCount++);
+        while (f instanceof Cast cast) f = cast.e();
+        String p;
+        Object body;
+        if (f instanceof Lambda l && l.params().size() == 1) {
+            p = l.params().get(0);
+            body = l.body();
+        } else if (f instanceof MethodRef r && r.target() instanceof Name cls && !r.name().equals("new")) {
+            p = "hp_ctx";
+            body = new Return(new Call(new Name(cls.id()), r.name(), List.of(new Name(p))));
+        } else {
+            String why = "an `executes` that isn't a lambda or a Class::method reference";
+            handlers.add(new Handler("command", fn, false, why, where, List.of()));
+            return cmdStub(fn, where, why, out);
+        }
+        Block blk = body instanceof Block bb ? bb : body instanceof Return ret ? new Block(List.of(ret)) : new Block(List.of(new Return((Expr) body)));
+        MethodDecl h = new MethodDecl();
+        h.mods = Set.of("static");
+        h.name = "\u0001" + fn;
+        h.line = 0;
+        h.params.add(new Param(new TypeRef("CommandContext", List.of(), 0), p, false));
+        String doc = "/// An `executes` of the command registered at " + where + ".\n";
+        List<Stmt> st = blk.stmts();
+        Lit fixed = null;
+        if (!st.isEmpty() && st.get(st.size() - 1) instanceof Return r && r.e() instanceof Lit lit && lit.kind().equals("int")) {
+            boolean[] other = {false};
+            for (Stmt s : st.subList(0, st.size() - 1)) walk(s, n -> {
+                if (n instanceof Return) other[0] = true;
+            });
+            if (!other[0]) fixed = lit;
+        }
+        if (fixed != null) {
+            h.ret = new TypeRef("void", List.of(), 0);
+            h.body = new Block(st.subList(0, st.size() - 1));
+            StringBuilder tmp = new StringBuilder();
+            int before = handlers.size();
+            try {
+                tmp.append(doc).append(method(c, h)).append('\n');
+                handlers.add(new Handler("command", fn, true, null, where, List.of()));
+            } catch (JavaParser.Unsupported e) {
+                partialHandler(c, h, "command", fn, where, doc, e.getMessage(), tmp);
+            }
+            Handler got = handlers.size() > before ? handlers.get(handlers.size() - 1) : null;
+            if (got == null || !got.ok()) return cmdStub(fn + "_run", where, got == null ? "not translated" : got.reason(), out);
+            out.append(tmp);
+            out.append("fn ").append(fn).append("_run(game: &mut crate::game::Game<'_>) -> i32 {\n    ").append(fn).append("(game);\n    ")
+                    .append(fixed.text()).append("\n}\n\n");
+            return fn + "_run";
+        }
+        h.ret = new TypeRef("int", List.of(), 0);
+        h.body = blk;
+        try {
+            out.append(doc).append(method(c, h)).append('\n');
+            handlers.add(new Handler("command", fn, true, null, where, List.of()));
+            return fn;
+        } catch (JavaParser.Unsupported e) {
+            handlers.add(new Handler("command", fn, false, e.getMessage(), where, List.of()));
+            return cmdStub(fn, where, e.getMessage(), out);
+        }
+    }
+
+    /** A command part that wasn't translated: it says so in chat, and Brigadier's result is 0 (failure). */
+    private static String cmdStub(String fn, String where, String reason, StringBuilder out) {
+        out.append("/// An `executes` of the command registered at ").append(where).append(", not translated: ")
+                .append(reason.replace('\n', ' ')).append(".\n");
+        out.append("fn ").append(fn).append("(game: &mut crate::game::Game<'_>) -> i32 {\n");
+        out.append("    game.native_chat(\"This part of the command isn't ported to Horizon yet.\");\n    0\n}\n\n");
+        return fn;
     }
 
     /** The mod's KeyMapping statics and their key names, from `X = ...new KeyMapping("key.mod.name", ...)`. */

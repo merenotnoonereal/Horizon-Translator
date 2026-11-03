@@ -26,7 +26,8 @@ public final class Main {
         String cmd = args[0];
         List<String> positional = new ArrayList<>();
         List<Path> mappingFiles = new ArrayList<>();
-        Path out = null, horizonSrc = null, javaSrc = null, vineflower = null, install = null;
+        Path out = null, horizonSrc = null, javaSrc = null, vineflower = null, install = null, work = null;
+        boolean noCheck = false, json = false, compile = false;
         String revision = null, author = null;
         int minScore = 6;
         for (int i = 1; i < args.length; i++) {
@@ -41,6 +42,10 @@ public final class Main {
                 case "--vineflower" -> vineflower = Path.of(value(args, ++i));
                 case "--install" -> install = NativePackage.defaultHome();
                 case "--install-to" -> install = Path.of(value(args, ++i));
+                case "--no-check" -> noCheck = true;
+                case "--json" -> json = true;
+                case "--compile" -> compile = true;
+                case "--work" -> work = Path.of(value(args, ++i));
                 default -> positional.add(args[i]);
             }
         }
@@ -53,6 +58,37 @@ public final class Main {
             case "check" -> {
                 if (positional.size() != 1 || horizonSrc == null) { usage(); return 2; }
                 return NativeCheck.run(Path.of(positional.get(0)), horizonSrc);
+            }
+            case "new" -> {
+                if (positional.size() != 1 || out == null) { usage(); return 2; }
+                ModKit.Made m = ModKit.make(Json.map(Json.parse(Text.read(Path.of(positional.get(0))))), out, horizonSrc, install);
+                System.out.println("Made " + m.project());
+                if (m.hnmod() != null) System.out.println("Packed " + m.hnmod());
+                for (String n : m.notes()) System.out.println(n);
+                return 0;
+            }
+            case "pack" -> {
+                if (positional.size() != 1 || horizonSrc == null) { usage(); return 2; }
+                Path compileWork = compile ? (work != null ? work : RealCompile.defaultWork()) : null;
+                return ModKit.pack(Path.of(positional.get(0)), horizonSrc, install, !noCheck, revision, compileWork);
+            }
+            case "compile" -> {
+                if (positional.size() != 1 || horizonSrc == null) { usage(); return 2; }
+                return RealCompile.run(Path.of(positional.get(0)), horizonSrc, work != null ? work : RealCompile.defaultWork());
+            }
+            case "hooks" -> {
+                if (!positional.isEmpty() || horizonSrc == null) { usage(); return 2; }
+                List<HookList.Hook> hooks = HookList.read(horizonSrc);
+                String rev = revision != null ? revision : HookList.revision(horizonSrc);
+                String text = json ? HookList.json(hooks, rev) : HookList.markdown(hooks, rev);
+                if (out == null) System.out.print(text);
+                else {
+                    if (out.toAbsolutePath().getParent() != null) Files.createDirectories(out.toAbsolutePath().getParent());
+                    Files.writeString(out, text);
+                    long n = hooks.stream().filter(h -> h.kind().equals("hook")).count();
+                    System.out.println("Wrote " + out + ": " + n + " hook points and " + (hooks.size() - n) + " helpers (hooks API " + HookList.api(hooks) + ")");
+                }
+                return 0;
             }
             case "translate" -> {
                 if (positional.size() != 1) { usage(); return 2; }
@@ -131,7 +167,7 @@ public final class Main {
                 js.label = "Decompiled Java";
                 Path dir = generate(jar, mappings, minScore, horizonSrc, revision, js, out, install);
                 Path porting = dir.resolve("PORTING.md");
-                Files.writeString(porting, Files.readString(porting) + "\n## Licence\n\n" + check.substring(check.indexOf('\n') + 1).strip()
+                Files.writeString(porting, Text.read(porting) + "\n## Licence\n\n" + check.substring(check.indexOf('\n') + 1).strip()
                         + (System.getProperty("horizonport.srcdir") != null
                                 ? "\n\nThe decompiled source was only used for the conversion and has been deleted.\n"
                                 : "\n\nThe decompiled source is in `" + srcDir + "`, outside this bundle: don't share it unless the licence lets you.\n"));
@@ -150,7 +186,7 @@ public final class Main {
             throws Exception {
         // The commit of the source given (Horizon's own source archives carry it in .horizon-revision).
         if (revision == null && horizonSrc != null && Files.isRegularFile(horizonSrc.resolve(".horizon-revision"))) {
-            String r = Files.readString(horizonSrc.resolve(".horizon-revision")).strip();
+            String r = Text.read(horizonSrc.resolve(".horizon-revision")).strip();
             if (r.matches("[0-9a-f]{40}")) revision = r;
         }
         if (revision != null && !revision.matches("[0-9a-f]{40}")) throw new IllegalArgumentException("--horizon-revision needs a full 40-character commit");
@@ -163,7 +199,7 @@ public final class Main {
             // The Minecraft version this Horizon plays (FabricLoader.getModContainer("minecraft") in translated code).
             Path version = horizonSrc.resolve("crates/horizon-core/src/version.rs");
             if (Files.isRegularFile(version)) {
-                java.util.regex.Matcher vm = java.util.regex.Pattern.compile("pub const VANILLA_VERSION: &str = \"([^\"]+)\";").matcher(Files.readString(version));
+                java.util.regex.Matcher vm = java.util.regex.Pattern.compile("pub const VANILLA_VERSION: &str = \"([^\"]+)\";").matcher(Text.read(version));
                 if (vm.find()) RustTranslator.gameVersion = vm.group(1);
             }
             // Only matches the doc and the name (or impl) agree on are taken without a person.
@@ -233,6 +269,32 @@ public final class Main {
                       Translates the mod's Java that doesn't need the game (maths, data, config,
                       strings...) into Rust: DIR/java.rs and DIR/translation.md, which says what
                       was left out and why (default DIR: out/translate-<folder>).
+
+                  new <spec.json> --out DIR [--horizon-src FOLDER] [--install]
+                      The mod kit: makes a new Horizon native mod in DIR from a spec (what the app's
+                      "Make a mod" builder writes; see ModKit.java), on Horizon's hook points only, and
+                      packs it as DIR/<id>.hnmod.
+
+                  pack <mod-folder> --horizon-src FOLDER [--install] [--no-check | --compile [--work DIR]] [--horizon-revision SHA]
+                      Checks a mod folder you edited (check and cargo test, when cargo is installed)
+                      and packs it as <id>.hnmod again, with the hook points API its hooks and helpers
+                      need (read from that source). --no-check skips the check against the helpers, for
+                      code that uses the game's own types. --compile runs `compile` instead of `check`.
+
+                  compile <mod-folder> --horizon-src FOLDER [--work DIR]
+                      The real check: horizon-mixins applies the mod to a copy of that Horizon source
+                      (as the launcher's Build does) and `cargo check` compiles Horizon with it. Sees
+                      everything, the game's own types too. Errors name the mod file they came from;
+                      the last line is `RESULT: ok`, `RESULT: failed (...)` or `RESULT: not checked`
+                      (exit 0, 1, 2). Needs the source unpacked (not a .zip), cargo, and horizon-mixins
+                      (the launcher's copy, or HORIZON_MIXINS). DIR keeps cargo's build between runs
+                      (default: HORIZON_PORT_WORK, else %LOCALAPPDATA%/horizon-port/compile or
+                      ~/.cache/horizon-port/compile); the first run takes a few GB and several minutes.
+
+                  hooks --horizon-src FOLDER [--json] [--out FILE]
+                      Lists that Horizon's hook points and helpers (native_hooks.rs and native-hooks.json):
+                      signature, doc, the hooks API each came in, and for each hook point the
+                      [[injection]] to paste into horizon-mixin.toml. Markdown, or JSON with --json.
 
                   check <bundle-folder> --horizon-src FOLDER
                       Compiles the bundle's Rust (runtime.rs, game_side.rs and the hook-point

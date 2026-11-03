@@ -108,7 +108,7 @@ final class NativePackage {
             files = s.filter(p -> p.toString().endsWith(".rs") || p.toString().endsWith(".toml")).sorted().toList();
         }
         for (Path f : files) {
-            List<String> lines = Files.readAllLines(f, StandardCharsets.UTF_8);
+            List<String> lines = Text.lines(f);
             for (int i = 0; i < lines.size(); i++) {
                 String l = lines.get(i).strip();
                 if (l.contains("TODO")) found.add("`" + dir.relativize(f).toString().replace('\\', '/') + ":" + (i + 1) + "` " + l);
@@ -171,7 +171,7 @@ final class NativePackage {
         Path to = dir.resolve(id + ".hnmod");
         Files.copy(hnmod, to, StandardCopyOption.REPLACE_EXISTING);
         Path list = home.resolve("horizon-mods.txt");
-        List<String> lines = Files.isRegularFile(list) ? new ArrayList<>(Files.readAllLines(list, StandardCharsets.UTF_8)) : new ArrayList<>();
+        List<String> lines = Files.isRegularFile(list) ? new ArrayList<>(Text.lines(list)) : new ArrayList<>();
         String key = "mod." + id;
         lines.removeIf(l -> l.contains(":") && l.substring(0, l.indexOf(':')).strip().equals(key));
         lines.add(key + ":true");
@@ -181,11 +181,17 @@ final class NativePackage {
 
     /**
      * Horizon's default game folder (`dirs::data_dir()/horizon`): %APPDATA%\horizon on Windows, $XDG_DATA_HOME/horizon
-     * or ~/.local/share/horizon on Linux.
+     * or ~/.local/share/horizon on Linux, ~/Library/Application Support/horizon on macOS. HORIZON_HOME wins, as in
+     * the launcher.
      */
     static Path defaultHome() {
+        String home = System.getenv("HORIZON_HOME");
+        if (home != null && !home.isBlank()) return Path.of(home);
         String appData = System.getenv("APPDATA");
         if (appData != null && !appData.isBlank()) return Path.of(appData, "horizon");
+        if (System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac")) {
+            return Path.of(System.getProperty("user.home"), "Library", "Application Support", "horizon");
+        }
         String xdg = System.getenv("XDG_DATA_HOME");
         if (xdg != null && Path.of(xdg).isAbsolute()) return Path.of(xdg, "horizon");
         return Path.of(System.getProperty("user.home"), ".local", "share", "horizon");

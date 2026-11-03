@@ -47,7 +47,7 @@ final class Support {
     static Info bundled(Path appDir) {
         try {
             Path f = appDir.resolve("donate.json");
-            return Files.isRegularFile(f) ? parse(Files.readString(f, StandardCharsets.UTF_8)) : Info.EMPTY;
+            return Files.isRegularFile(f) ? parse(new String(Files.readAllBytes(f), StandardCharsets.UTF_8)) : Info.EMPTY;
         } catch (Exception e) {
             return Info.EMPTY;
         }

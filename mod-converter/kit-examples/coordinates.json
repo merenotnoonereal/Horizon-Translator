@@ -1,0 +1,12 @@
+{
+  "name": "Simple Coordinates",
+  "id": "simple_coords",
+  "version": "1.0.0",
+  "description": "Your position, facing and FPS in a corner of the screen.",
+  "author": "",
+  "hud": {"corner": "top_left", "lines": ["XYZ {x} / {y} / {z}", "Facing {facing}", "{fps} fps"], "color": "ffffff", "background": true, "key": "key.keyboard.h"},
+  "commands": [
+    {"name": "where", "action": "say", "text": ["You're at {bx}, {by}, {bz} in the {dimension}."]},
+    {"name": "coords", "action": "toggle_hud", "text": []}
+  ]
+}

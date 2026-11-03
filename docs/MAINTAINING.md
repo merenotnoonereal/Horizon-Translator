@@ -21,6 +21,11 @@ addresses. Users don't need any of this; see the [README](../README.md).
 2. On GitHub, open *Releases → Draft a new release*, make a tag with **the same number** (`1.0.3` or `v1.0.3`),
    and attach `HorizonTranslator-Setup.exe` and `HorizonTranslator-linux-x64.tar.gz` with exactly those names.
    The website's Linux button links to the second one.
+   The Mac apps build themselves: publishing the release runs `.github/workflows/mac.yml` on GitHub's Mac
+   machines, which attaches `HorizonTranslator-mac-arm64.dmg` (Apple Silicon) and `HorizonTranslator-mac-x64.dmg`
+   (Intel) a few minutes later (watch it under *Actions*; *Run workflow* there builds them without a release).
+   On a Mac you can also run `bash scripts/build-mac.sh`. They aren't signed by Apple (that needs a paid Apple
+   developer account), so players allow them once in System Settings → Privacy & Security.
 3. Publish. The website's **Download for Windows** button always points to the newest release:
    <https://github.com/merenotnoonereal/Horizon-Translator/releases/latest/download/HorizonTranslator-Setup.exe>.
 
@@ -38,6 +43,20 @@ top of `web/public/app.js`, the address in `web/public/terms.html`, `.github/ISS
 away once enough people have downloaded the file, or for good with a code-signing certificate (paid,
 roughly $100–400 a year). Publish SHA-256 checksums with each release so people can check their download:
 `certutil -hashfile HorizonTranslator-Setup.exe SHA256`.
+
+## Sharing a mod (Get mods)
+
+The app's **Get mods** tab and the website's "Mods to download" list read `web/public/mods/index.json`. To add or
+update a mod:
+
+1. Put its project in `mods/<id>/` (what **Make a mod** writes) with a `mod.json`: `name`, `author`, `description`,
+   `needs` (which Horizon, in words).
+2. Pack it: `java -jar mod-converter/build/horizon-port.jar pack mods/<id> --horizon-src <Horizon source>` (add
+   `--no-check` for code that uses the game's own types, as AppleSkin does, and `--horizon-revision <sha>` when the
+   source folder has no `.horizon-revision`). Raise the version in `horizon-mixin.toml` and `runtime.rs` first.
+3. `python scripts/mods-index.py` copies the `.hnmod` into `web/public/mods/` and rewrites the list (sizes, SHA-256).
+4. Commit and push: GitHub Pages publishes the list and the file, and every app sees the new version (an installed
+   copy shows **Update**). The build scripts also ship the list with the next installer, for use offline.
 
 ## Donation addresses (Support me)
 
