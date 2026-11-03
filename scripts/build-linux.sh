@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 HORIZON_SRC="${HORIZON_SRC:-horizon-src}"
-export APP_VERSION="${APP_VERSION:-1.0.2}"
+export APP_VERSION="${APP_VERSION:-1.0.7}"
 [ -f "$HORIZON_SRC/Cargo.toml" ] || bash scripts/get-horizon.sh
 B="${BUILD_DIR:-desktop/build-linux}"
 DIST="${DIST_DIR:-dist}"
@@ -28,7 +28,11 @@ cp mod-converter/build/horizon-port.jar mod-converter/tools/vineflower-*.jar "$B
 cp mod-converter/mappings/horizon-mappings.json "$B/input/mappings/"
 cp "$SHADERPORT_BIN" "$B/input/horizon-shaderport"
 chmod +x "$B/input/horizon-shaderport"
-cp web/public/logo.png web/public/donate.json "$B/input/"
+cp web/public/logo.png web/public/donate.json web/public/making-mods.md "$B/input/"
+# The mod kit's examples (Make a mod > Start from).
+cp -r mod-converter/kit-examples "$B/input/"
+python3 scripts/mods-index.py --check 2>/dev/null || python scripts/mods-index.py --check
+cp -r web/public/mods "$B/input/"
 python3 desktop/make-horizon-zip.py "$HORIZON_SRC" "$B/input/horizon-src.zip"
 
 echo "== app image (bundles Java)"

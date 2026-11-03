@@ -98,6 +98,14 @@ h2 { font-size: 1.5rem; margin: 0 0 16px; }
 .download .small-print { font-size: .85rem; margin: 10px 0 0; }
 .download a.go, .download a.ghost { margin: 4px 8px 4px 0; }
 .steps { margin-top: 18px; }
+.mod-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+.mod-list .mod { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.mod-list .mod > div:first-child { flex: 1 1 320px; min-width: 0; }
+.mod-list .mod p { margin: 4px 0 0; color: var(--muted); }
+.mod-list .mod .ver { color: var(--muted); font-size: .9rem; }
+.mod-list .mod code { overflow-wrap: anywhere; }
+.mod-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .steps h4 { margin: 0 0 8px; }
 .steps ol { padding-left: 20px; margin: 0 0 12px; display: grid; gap: 8px; font-size: .95rem; }
 @media (max-width: 560px) { .download { flex-direction: column; } }
@@ -190,3 +198,6 @@ a.ghost { text-decoration: none; display: inline-block; }
   .panel, .result { padding: 16px; }
   .tab { padding: 8px 12px; }
 }
+.guide { margin-top: 22px; padding-top: 6px; border-top: 1px solid var(--border); }
+.guide h1 { font-size: 1.45rem; }
+.guide pre { max-height: none; }
