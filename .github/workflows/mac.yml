@@ -1,0 +1,59 @@
+# Builds the macOS app on GitHub's Mac machines (a Mac app can't be built on Windows or Linux) and attaches
+# HorizonTranslator-mac-arm64.dmg (Apple Silicon) and HorizonTranslator-mac-x64.dmg (Intel) to the release.
+# Runs by itself when a release is published. To add them to a release that's already out: Actions > Mac app >
+# Run workflow, and type the release's tag (1.0.7). Left empty, the .dmg files are only kept as the run's artifacts.
+name: Mac app
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the Mac apps to (for example 1.0.7); empty: don't attach"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15        # Apple Silicon
+          - runner: macos-15-intel  # Intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - name: Version
+        # The release's tag (the app's update check compares it), else the build script's own version.
+        run: |
+          if [ -n "$TAG" ]; then echo "APP_VERSION=${TAG#v}" >> "$GITHUB_ENV"; fi
+
+      - name: Build
+        run: bash scripts/build-mac.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-${{ matrix.runner }}
+          path: dist/*.dmg
+
+      - name: Attach to the release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/*.dmg --clobber
