@@ -1,0 +1,17 @@
+{
+  "name": "AppleSkin for Horizon",
+  "id": "appleskin",
+  "version": "1.1.0",
+  "author": "Horizon Translator mod kit",
+  "description": "A remake of AppleSkin: food values in tooltips, saturation and exhaustion on the hunger bar, and a preview of what the food in your hand restores.",
+  "commands": [
+    {
+      "name": "food",
+      "action": "say",
+      "text": [
+        "Hunger {x}"
+      ]
+    }
+  ]
+}
+

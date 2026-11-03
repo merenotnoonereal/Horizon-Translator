@@ -1,0 +1,13 @@
+[package]
+name = "horizon-mod-appleskin"
+version = "1.1.0"
+edition = "2024"
+publish = false
+description = "AppleSkin for Horizon: A remake of AppleSkin: food values in tooltips, saturation and exhaustion on the hunger bar, and a preview of what the food in your hand restores."
+
+# The mod's logic and its tests (`cargo test`): the same file the bundle adds to the game.
+[lib]
+path = "mixins/appleskin/runtime.rs"
+
+# Not part of any other workspace.
+[workspace]

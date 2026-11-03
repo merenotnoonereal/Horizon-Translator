@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "mods": [
+    {
+      "id": "appleskin",
+      "name": "AppleSkin for Horizon",
+      "version": "1.1.0",
+      "author": "merenotnoonereal",
+      "description": "A remake of AppleSkin: food values in tooltips, saturation and exhaustion on the hunger bar, and a flashing preview of what the food in your hand restores. /food says your exact numbers.",
+      "needs": "Horizon nightly 2026-11-01 (c9d474d) or newer",
+      "hooks": 68,
+      "horizon": "c9d474dd9116e84c243f8992d75c11314df56f06",
+      "file": "appleskin.hnmod",
+      "size": 15750,
+      "sha256": "81ef8240b6703b14d4be8a6aff133ce181a9438deaacd31266f83357e5652637"
+    }
+  ]
+}

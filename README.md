@@ -1,7 +1,8 @@
 # Horizon Translator
 
 Convert **Fabric mods** and **Iris / OptiFine shader packs** so they run in
-[Horizon](https://github.com/horizon-rust/horizon), the rewrite of Minecraft Java Edition in Rust.
+[Horizon](https://github.com/horizon-rust/horizon), the rewrite of Minecraft Java Edition in Rust,
+and **make your own Horizon mods** without writing code ([the guide](web/public/making-mods.md)).
 
 **[Open the website](https://merenotnoonereal.github.io/Horizon-Translator/)** ·
 **[Download the Windows app](https://github.com/merenotnoonereal/Horizon-Translator/releases/latest/download/HorizonTranslator-Setup.exe)** ·
@@ -9,14 +10,16 @@ Convert **Fabric mods** and **Iris / OptiFine shader packs** so they run in
 [Report an issue](https://github.com/merenotnoonereal/Horizon-Translator/issues/new/choose) ·
 [Discord](https://discord.gg/nzqXYDXmq6)
 
-It comes as a **website** and a **Windows app/linux**. Everything runs on the user's own computer: nothing is
+It comes as a **website** and a **desktop app** for Windows, Linux and Mac. Everything runs on the user's own computer: nothing is
 ever uploaded, and there is no server to run or pay for.
 
 | | What it does | Where it runs |
 |---|---|---|
 | **Website** (`web/`) | converts shader packs; download page for the app | in the visitor's browser (WebAssembly), hosted free on GitHub Pages |
-| **Desktop app** (`desktop/`) | converts mods and shader packs, same menu as the website; Windows installer and Linux `.tar.gz` | on the user's PC (Java included) |
+| **Desktop app** (`desktop/`) | converts mods and shader packs, same menu as the website, and makes new mods (**Make a mod**); Windows installer and Linux `.tar.gz` | on the user's PC (Java included) |
+| **Mod kit** (`mod-converter/src/horizonport/ModKit.java`, `kit-examples/`) | a form (or a JSON spec) → a new Horizon native mod: Rust project + `.hnmod`, on Horizon's stable hook points | inside the app, or from the command line |
 | **Mod converter** (`mod-converter/`, Java) | Fabric mod `.jar` → Horizon native-mod bundle (`horizon-mixin.toml` + Rust) | inside the app, or from the command line |
+| **Shared mods** (`mods/`) | mods made with the kit, source and ready `.hnmod`; listed in `web/public/mods/index.json` | downloaded by the app's **Get mods** tab and from the website |
 | **Shader converter** (`shader-converter/`, Rust) | Iris/OptiFine pack `.zip` → pack Horizon loads (`<name>-horizon.zip`) | in the browser, inside the app, or from the command line |
 
 > Community project. Not made by or affiliated with Mojang, Microsoft, the Horizon team, Fabric, Iris or OptiFine.
@@ -69,13 +72,23 @@ ever uploaded, and there is no server to run or pay for.
    It installs for your user only, with no administrator rights, and Java is included.
    **On Linux**, press **Download for Linux**, unpack it (`tar -xzf HorizonTranslator-linux-x64.tar.gz`) and run
    `HorizonTranslator/bin/HorizonTranslator` (`install-menu-entry.sh` adds it to your app menu). Java is included here too.
-2. Open **Horizon Translator**. It has the same Mods / Shader packs tabs as the website.
+2. Open **Horizon Translator**. It has the same Mods / Shader packs tabs as the website. Its Shader packs tab also has
+   **Best shader packs** (app only): packs that convert well, such as Complementary, with a link to each official
+   download page and a **Convert…** button for the file you downloaded. Converted packs are only for the player's own use.
 3. Drop in a Fabric mod `.jar` and press **Convert mod**. If the mod is *All Rights Reserved* and you made
    it, tick **I made this mod** and type your name exactly as the mod's `fabric.mod.json` lists it.
 4. Results are saved in `Documents\Horizon Translator` (changeable). The report and the converter log
    show in the window; **Open result** opens the folder. For shader packs, *Also install it into Horizon's
    shaderpacks folder* copies the result straight into Horizon.
-5. When a newer version is on GitHub, a green bar at the top of the app says so, with a button to the
+5. **Make a mod** builds a new mod from a form: a HUD box, chat commands, keys, zoom, welcome and timed
+   messages. **Make mod** writes the mod's folder (Rust code, README) and its `.hnmod`, and adds it to Horizon.
+   **Check and pack a folder** checks and repacks a mod whose code you changed. The guide
+   ([`web/public/making-mods.md`](web/public/making-mods.md), also on the website and behind the tab's **Guide** button)
+   covers everything, including the hook points and helpers for writing code.
+6. **Get mods** lists the mods this project shares (`mods/`, such as AppleSkin for Horizon) and installs one
+   with a click: it downloads the `.hnmod` from the website, checks its SHA-256 against the list, and adds it to
+   Horizon. Without internet it uses the copy that came with the app. Then press **Build** on the launcher's Mods page.
+7. When a newer version is on GitHub, a green bar at the top of the app says so, with a button to the
    download page. (The app asks GitHub for the latest release when it starts. Nothing about you or your files
    is sent.)
 
@@ -256,6 +269,8 @@ On Windows, Rust may need the Visual Studio Build Tools, or switch to the GNU to
 ```bash
 # Mods
 java -jar mod-converter/build/horizon-port.jar port some-mod.jar --horizon-src horizon-src
+java -jar mod-converter/build/horizon-port.jar new mod-converter/kit-examples/zoom.json --out my-zoom --horizon-src horizon-src
+java -jar mod-converter/build/horizon-port.jar pack my-zoom --horizon-src horizon-src --install
 java -jar mod-converter/build/horizon-port.jar license some-mod.jar      # just the licence check
 
 # Shaders
@@ -266,7 +281,8 @@ shader-converter/target/release/horizon-shaderport port MyPack.zip --install
 Publishing the website and the installer is covered in [`docs/MAINTAINING.md`](docs/MAINTAINING.md).
 
 **Tests:** `bash mod-converter/test/run-test.sh` (builds a made-up test mod and checks every step;
-prints `FAIL:` lines on failure) and `cd shader-converter && cargo test`.
+prints `FAIL:` lines on failure), `bash mod-converter/test/kit-test.sh` (makes every mod kit example, compiles it
+against Horizon's helpers and runs its tests; needs cargo) and `cd shader-converter && cargo test`.
 
 ---
 
@@ -288,6 +304,7 @@ Only send on the networks listed. Crypto sent on another network can't be got ba
 ```
 Horizon-Translator/
 ├── README.md                   this file
+├── AGENTS.md                   notes for AI coding agents: commands, checks, rules (CLAUDE.md points to it)
 ├── .github/
 │   ├── workflows/pages.yml     publishes the website to GitHub Pages
 │   └── ISSUE_TEMPLATE/         forms for mod, shader, website problems and ideas
@@ -297,13 +314,17 @@ Horizon-Translator/
 │   ├── build-wasm.sh           builds the website's WebAssembly shader converter
 │   ├── build-desktop.sh        builds the Windows app + HorizonTranslator-Setup.exe
 │   ├── check-donate.mjs        checks the donation addresses in web/public/donate.json
+│   ├── mods-index.py           copies mods/*/<id>.hnmod to web/public/mods and writes its index.json
 │   └── run-local.sh            serves the website on your PC
 ├── web/
 │   ├── server/TranslatorServer.java   a local file server for trying the site (JDK only)
 │   └── public/                 the website: index.html, terms.html, style.css, app.js, markdown.js,
 │                               shader-worker.js + horizon-shaderport.wasm, donate.json, logo.png
+├── mods/                       shared mods made with the kit (each: mixins/, README, mod.json, <id>.hnmod)
+│   └── appleskin/              AppleSkin for Horizon: food values, saturation, exhaustion, held-food preview
 ├── desktop/                    the Windows app
-│   ├── src/horizonport/        TranslatorApp.java (the window), Support.java + Qr.java (Support me tab)
+│   ├── src/horizonport/        TranslatorApp.java (the window), ModKitPanel.java (Make a mod), GetMods.java
+│   │                           (Get mods), Support.java + Qr.java (Support me tab)
 │   ├── installer.iss, installer-notice.txt  the Inno Setup installer
 │   └── make-horizon-zip.py, make-ico.py     build helpers
 ├── mod-converter/              horizon-port (Java)

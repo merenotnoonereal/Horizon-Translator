@@ -13,9 +13,12 @@ for (const a of document.querySelectorAll(".repo-issues")) a.href = REPO_URL + "
 for (const a of document.querySelectorAll(".repo-ideas")) a.href = REPO_URL + "/issues/new?template=feature_request.md";
 // The Windows app: the newest HorizonTranslator-Setup.exe attached to a GitHub Release.
 const APP_DOWNLOAD = REPO_URL + "/releases/latest/download/HorizonTranslator-Setup.exe";
-for (const a of document.querySelectorAll("#download-app")) a.href = APP_DOWNLOAD;
+for (const a of document.querySelectorAll("[id=download-app]")) a.href = APP_DOWNLOAD;
 // The Linux app: the newest HorizonTranslator-linux-x64.tar.gz on the same release.
-for (const a of document.querySelectorAll("#download-linux")) a.href = REPO_URL + "/releases/latest/download/HorizonTranslator-linux-x64.tar.gz";
+for (const a of document.querySelectorAll("[id=download-linux]")) a.href = REPO_URL + "/releases/latest/download/HorizonTranslator-linux-x64.tar.gz";
+// The Mac apps (built by .github/workflows/mac.yml and attached to the same release).
+for (const a of document.querySelectorAll("[id=download-mac-arm]")) a.href = REPO_URL + "/releases/latest/download/HorizonTranslator-mac-arm64.dmg";
+for (const a of document.querySelectorAll("[id=download-mac-intel]")) a.href = REPO_URL + "/releases/latest/download/HorizonTranslator-mac-x64.dmg";
 for (const a of document.querySelectorAll(".repo-releases")) a.href = REPO_URL + "/releases";
 for (const a of document.querySelectorAll(".open-verify")) a.addEventListener("click", () => { $("#verify-app").open = true; });
 
@@ -64,17 +67,67 @@ function issueLink(kind, name, d) {
 
 // ---- tabs
 for (const tab of document.querySelectorAll(".tab")) {
-  tab.addEventListener("click", () => selectTab(tab.id === "tab-mod" ? "mod" : "shader"));
+  tab.addEventListener("click", () => selectTab(tab.id.slice(4)));
+}
+for (const a of document.querySelectorAll(".open-make")) {
+  a.addEventListener("click", (e) => { e.preventDefault(); selectTab("make"); $("#convert").scrollIntoView({ behavior: "smooth" }); });
 }
 function selectTab(kind) {
-  state.kind = kind;
-  for (const k of ["mod", "shader"]) {
+  if (kind !== "make") state.kind = kind;
+  if (kind === "make") { loadGuide(); loadMods(); }
+  for (const k of ["mod", "shader", "make"]) {
     const on = k === kind;
     $("#tab-" + k).classList.toggle("active", on);
     $("#tab-" + k).setAttribute("aria-selected", on);
     $("#panel-" + k).hidden = !on;
   }
 }
+
+// ---- the mod kit's guide (making-mods.md, also shipped in the app), loaded when its tab first opens
+let guideLoaded = false;
+async function loadGuide() {
+  if (guideLoaded) return;
+  guideLoaded = true;
+  const el = $("#guide");
+  try {
+    const r = await fetch("making-mods.md", { cache: "no-cache" });
+    if (!r.ok) throw new Error(r.status);
+    el.innerHTML = renderMarkdown(await r.text());
+  } catch {
+    guideLoaded = false;
+    el.innerHTML = `<p class="hint">The guide didn't load. Read it on <a href="${REPO_URL}/blob/main/web/public/making-mods.md" rel="noopener">GitHub</a>.</p>`;
+  }
+}
+// ---- the shared mods (mods/index.json, written by scripts/mods-index.py), listed when the tab first opens
+let modsLoaded = false;
+async function loadMods() {
+  if (modsLoaded) return;
+  modsLoaded = true;
+  const el = $("#mod-list");
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  try {
+    const r = await fetch("mods/index.json", { cache: "no-cache" });
+    if (!r.ok) throw new Error(r.status);
+    const mods = ((await r.json()).mods || []).filter((m) => /^[a-z0-9_]+\.hnmod$/.test(m.file));
+    el.innerHTML = mods.length ? mods.map((m) => `
+      <li class="mod">
+        <div>
+          <strong>${esc(m.name)}</strong> <span class="ver">${esc(m.version)}</span>
+          <p>${esc(m.description)}</p>
+          <p class="small-print">Needs Horizon's hook points API ${esc(m.hooks)} or newer${m.needs ? " (" + esc(m.needs) + ")" : ""} ·
+            ${Math.max(1, Math.round(m.size / 1024))} KB · SHA-256 <code>${esc(m.sha256.slice(0, 16))}…</code></p>
+        </div>
+        <div class="mod-actions">
+          <a class="go" href="mods/${esc(m.file)}" download>Download .hnmod</a>
+          <a class="ghost" href="${REPO_URL}/tree/main/mods/${esc(m.id)}" rel="noopener">Source</a>
+        </div>
+      </li>`).join("") : `<li class="hint">No mods yet.</li>`;
+  } catch {
+    modsLoaded = false;
+    el.innerHTML = `<li class="hint">The list didn't load. See the mods on <a href="${REPO_URL}/tree/main/mods" rel="noopener">GitHub</a>.</li>`;
+  }
+}
+if (location.hash === "#make") selectTab("make");
 
 // ---- file choosing (click or drag and drop)
 for (const drop of document.querySelectorAll(".drop")) {

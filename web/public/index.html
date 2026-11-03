@@ -18,6 +18,7 @@
       </a>
       <nav>
         <a href="#convert">Convert</a>
+        <a href="#make" class="open-make">Make a mod</a>
         <a href="#how">How it works</a>
         <a href="#faq">FAQ</a>
         <a class="repo-issues" href="#" rel="noopener" target="_blank">Report an issue</a>
@@ -32,7 +33,7 @@
       <h1>Bring your mods and shaders to Horizon</h1>
       <p class="lead">
         Convert <strong>Iris / OptiFine shader packs</strong> right here in your browser, and <strong>Fabric mods</strong>
-        with the free desktop app for Windows and Linux. The translator rewrites them for <a href="https://github.com/horizon-rust/horizon" rel="noopener">Horizon</a>,
+        with the free desktop app for Windows, Linux and Mac. The translator rewrites them for <a href="https://github.com/horizon-rust/horizon" rel="noopener">Horizon</a>,
         the Rust rewrite of Minecraft Java.
       </p>
       <p id="server-status" class="status-line" aria-live="polite">Checking your browser…</p>
@@ -42,6 +43,7 @@
       <div class="tabs" role="tablist">
         <button role="tab" id="tab-mod" aria-selected="true" aria-controls="panel-mod" class="tab active">Mods</button>
         <button role="tab" id="tab-shader" aria-selected="false" aria-controls="panel-shader" class="tab">Shader packs</button>
+        <button role="tab" id="tab-make" aria-selected="false" aria-controls="panel-make" class="tab">Make a mod</button>
       </div>
 
       <div class="panel" id="panel-mod" role="tabpanel" aria-labelledby="tab-mod">
@@ -54,12 +56,14 @@
         <div class="download">
           <img src="logo.png" alt="" width="64" height="64">
           <div>
-            <h3>Horizon Translator for Windows and Linux</h3>
+            <h3>Horizon Translator for Windows, Linux and Mac</h3>
             <p>Mods are converted by a free desktop app, so everything runs on your own PC and nothing is uploaded.
             It has the same menu as this site and converts shader packs too.</p>
             <a class="go" id="download-app" href="#">Download for Windows (.exe)</a>
             <a class="ghost" id="download-linux" href="#">Download for Linux (.tar.gz)</a>
-            <p class="small-print">Windows 10/11 or 64-bit Linux · about 45 MB · Java is included, nothing else to install</p>
+            <a class="ghost" id="download-mac-arm" href="#">Mac, Apple Silicon (.dmg)</a>
+            <a class="ghost" id="download-mac-intel" href="#">Mac, Intel (.dmg)</a>
+            <p class="small-print">Windows 10/11, 64-bit Linux or macOS · about 45 MB · Java is included, nothing else to install</p>
           </div>
         </div>
         <div class="steps">
@@ -70,7 +74,10 @@
               Only do this with the file from this site or the project's GitHub Releases page.
               If Defender calls it a trojan, see <a href="#verify-app" class="open-verify">how to check the file</a> below.
               <br><strong>Linux:</strong> unpack it (<code>tar -xzf HorizonTranslator-linux-x64.tar.gz</code>) and run
-              <code>HorizonTranslator/bin/HorizonTranslator</code>. <code>install-menu-entry.sh</code> in that folder adds it to your app menu.</li>
+              <code>HorizonTranslator/bin/HorizonTranslator</code>. <code>install-menu-entry.sh</code> in that folder adds it to your app menu.
+              <br><strong>Mac:</strong> open the <code>.dmg</code> (Apple Silicon for M1 and newer) and drag Horizon Translator into Applications.
+              It isn't signed by Apple, so the first time open <strong>System Settings → Privacy &amp; Security</strong> and press
+              <strong>Open Anyway</strong>.</li>
             <li>Open <strong>Horizon Translator</strong>, pick the <strong>Mods</strong> tab and drop in a Fabric mod <code>.jar</code>.</li>
             <li>Press <strong>Convert mod</strong>. The result is saved in <code>Documents/Horizon Translator</code>.</li>
             <li>If the mod converted <em>fully</em> (rare), you get <code>&lt;modid&gt;.hnmod</code> and the app adds it to Horizon:
@@ -111,6 +118,44 @@
           and download it again from the Releases page.</p>
         </details>
         <p class="agree">By downloading you agree to the <a href="terms.html">Terms of Use</a>: only convert files you're allowed to modify.</p>
+      </div>
+
+      <div class="panel" id="panel-make" role="tabpanel" aria-labelledby="tab-make" hidden>
+        <div class="download">
+          <img src="logo.png" alt="" width="64" height="64">
+          <div>
+            <h3>Make your own Horizon mod, no coding needed</h3>
+            <p>The desktop app's <strong>Make a mod</strong> tab builds Horizon mods from a form: a HUD box with your
+            coordinates or FPS, chat commands, keys, a zoom key, welcome and reminder messages. Press <strong>Make mod</strong>
+            and you get a ready <code>.hnmod</code>, plus the mod's Rust code if you want to go further.
+            Kit mods use only the parts of Horizon kept stable for mods, so they keep working when Horizon updates.</p>
+            <a class="go" id="download-app" href="#">Download for Windows (.exe)</a>
+            <a class="ghost" id="download-linux" href="#">Download for Linux (.tar.gz)</a>
+            <a class="ghost" id="download-mac-arm" href="#">Mac, Apple Silicon (.dmg)</a>
+            <a class="ghost" id="download-mac-intel" href="#">Mac, Intel (.dmg)</a>
+            <p class="small-print">Free · the app tells you when a new version is out · everything runs on your PC</p>
+          </div>
+        </div>
+        <div class="steps">
+          <h4>In five steps</h4>
+          <ol>
+            <li>Install the app and open the <strong>Make a mod</strong> tab.</li>
+            <li>Pick an example under <strong>Start from</strong>, or start blank, and give your mod a name.</li>
+            <li>Tick what it does and fill in the boxes. Text can show <code>{x}</code>, <code>{facing}</code>, <code>{fps}</code> and more.</li>
+            <li>Press <strong>Make mod</strong>. It's added to Horizon for you.</li>
+            <li>In the Horizon launcher's <strong>Mods</strong> page, press <strong>Build</strong> under "Native build of Horizon", then play that build.</li>
+          </ol>
+        </div>
+        <div class="steps" id="shared-mods">
+          <h4>Mods to download</h4>
+          <p class="hint">Mods made with the kit, ready to play. The app's <strong>Get mods</strong> tab installs them for you; or
+          download the <code>.hnmod</code>, put it in <code>%APPDATA%\horizon\horizon-native-mods</code> (Linux:
+          <code>~/.local/share/horizon/horizon-native-mods</code>, Mac:
+          <code>~/Library/Application Support/horizon/horizon-native-mods</code>) and add <code>mod.&lt;id&gt;:true</code> to
+          <code>horizon-mods.txt</code> beside it. Then press Build on the launcher's Mods page.</p>
+          <ul class="mod-list" id="mod-list"><li class="hint">Loading the list…</li></ul>
+        </div>
+        <article class="guide md" id="guide" aria-live="polite"><p class="hint">Loading the guide…</p></article>
       </div>
 
       <div class="panel" id="panel-shader" role="tabpanel" aria-labelledby="tab-shader" hidden>

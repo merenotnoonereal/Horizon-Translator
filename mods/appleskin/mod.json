@@ -1,0 +1,6 @@
+{
+  "name": "AppleSkin for Horizon",
+  "author": "merenotnoonereal",
+  "description": "A remake of AppleSkin: food values in tooltips, saturation and exhaustion on the hunger bar, and a flashing preview of what the food in your hand restores. /food says your exact numbers.",
+  "needs": "Horizon nightly 2026-11-01 (c9d474d) or newer"
+}
