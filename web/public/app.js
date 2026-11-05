@@ -6,6 +6,7 @@ const $ = (s, root = document) => root.querySelector(s);
 const state = {
   mod: null,
   shader: null,
+  resourcepack: null,
   kind: "mod",
   busy: false,
   step: "",
@@ -90,7 +91,7 @@ function updateVerifyLive() {
 
 // A new GitHub issue with the result's details filled in (the log is cut so the link stays short enough).
 function issueLink(kind, name, d) {
-  const what = kind === "mod" ? "Mod" : "Shader pack";
+  const what = kind === "mod" ? "Mod" : kind === "resourcepack" ? "Resource pack" : "Shader pack";
   const title = `${what} conversion: ${name} (${d.status || (d.ok ? "converted" : "failed")})`;
   const log = (d.log || "").slice(-3000);
   const body = [
@@ -128,7 +129,7 @@ function selectTab(kind) {
     loadGuide();
     loadMods();
   }
-  for (const k of ["mod", "shader", "make"]) {
+  for (const k of ["mod", "shader", "resourcepack", "make"]) {
     const on = k === kind;
     $("#tab-" + k).classList.toggle("active", on);
     $("#tab-" + k).setAttribute("aria-selected", on);
@@ -292,14 +293,18 @@ async function convert(kind) {
   $("#result").hidden = true;
   $("#working").hidden = false;
   $("#working-title").textContent = window.I18n ? I18n.t("working.converting", file.name) : `Converting ${file.name}…`;
-  state.step = window.I18n ? I18n.t("working.starting") : "Starting the shader converter.";
+  state.step = window.I18n ? I18n.t("working.starting") : (kind === "resourcepack" ? "Starting the resource pack converter." : "Starting the shader converter.");
   const started = Date.now();
   const show = () => { $("#working-sub").textContent = `${state.step} (${Math.round((Date.now() - started) / 1000)}s)`; };
   show();
   const tick = setInterval(show, 1000);
   let data;
   try {
-    data = await convertShaderInBrowser(file);
+    if (kind === "resourcepack") {
+      data = await convertPackInBrowser(file, "resourcepack-worker.js");
+    } else {
+      data = await convertShaderInBrowser(file);
+    }
   } catch (e) {
     const errText = window.I18n
       ? I18n.t("error.stopped", (e && e.message ? e.message : e))
@@ -326,8 +331,8 @@ function blobLink(blob) {
   return lastBlobUrl;
 }
 
-// ---- shader packs: converted in this browser by shader-worker.js
-function convertShaderInBrowser(file) {
+// ---- shader & resource packs: converted in this browser by shader-worker.js or resourcepack-worker.js
+function convertPackInBrowser(file, workerScript = "shader-worker.js") {
   const name = safeName(file.name, ".zip");
   const stem = name.replace(/\.zip$/i, "");
   if (!BROWSER_OK) {
@@ -338,7 +343,7 @@ function convertShaderInBrowser(file) {
   }
   return new Promise(async (resolve) => {
     const bytes = await file.arrayBuffer();
-    const worker = new Worker("shader-worker.js", { type: "module" });
+    const worker = new Worker(workerScript, { type: "module" });
     worker.onerror = (e) => {
       worker.terminate();
       const err = window.I18n
@@ -368,6 +373,10 @@ function convertShaderInBrowser(file) {
     };
     worker.postMessage({ name, bytes }, [bytes]);
   });
+}
+
+function convertShaderInBrowser(file) {
+  return convertPackInBrowser(file, "shader-worker.js");
 }
 
 function setBusy(b) {
@@ -419,6 +428,11 @@ function renderResult() {
       const p1 = window.I18n
         ? I18n.t("result.next.shader")
         : "<strong>Next:</strong> put the zip in Horizon's <code>shaderpacks</code> folder (<code>%APPDATA%\\horizon\\shaderpacks</code> on Windows) and pick it in Options → Horizon Settings → Shader Packs.";
+      next.innerHTML = `<p>${p1}</p><p>${escapeHtml(d.before || "")}<br>${escapeHtml(d.summary || "")}</p>`;
+    } else if (kind === "resourcepack") {
+      const p1 = window.I18n
+        ? I18n.t("result.next.resourcepack")
+        : "<strong>Next:</strong> put the zip in Horizon's <code>resourcepacks</code> folder (<code>%APPDATA%\\horizon\\resourcepacks</code> on Windows) and pick it in Options → Resource Packs.";
       next.innerHTML = `<p>${p1}</p><p>${escapeHtml(d.before || "")}<br>${escapeHtml(d.summary || "")}</p>`;
     } else {
       const p1 = window.I18n

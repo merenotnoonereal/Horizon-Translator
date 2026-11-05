@@ -19,8 +19,25 @@ echo "== mod converter"
 bash mod-converter/build.sh
 echo "== shader converter"
 if [ -z "${SHADERPORT_EXE:-}" ]; then
-  ( cd shader-converter && cargo build --release )
-  SHADERPORT_EXE=shader-converter/target/release/horizon-shaderport.exe
+  if [ -n "${CARGO_TARGET_DIR:-}" ] && [ -f "$CARGO_TARGET_DIR/release/horizon-shaderport.exe" ]; then
+    SHADERPORT_EXE="$CARGO_TARGET_DIR/release/horizon-shaderport.exe"
+  elif [ -f "shader-converter/target/release/horizon-shaderport.exe" ]; then
+    SHADERPORT_EXE="shader-converter/target/release/horizon-shaderport.exe"
+  else
+    ( cd shader-converter && cargo build --release )
+    SHADERPORT_EXE="${CARGO_TARGET_DIR:-shader-converter/target}/release/horizon-shaderport.exe"
+  fi
+fi
+echo "== resourcepack converter"
+if [ -z "${RESOURCEPACKPORT_EXE:-}" ]; then
+  if [ -n "${CARGO_TARGET_DIR:-}" ] && [ -f "$CARGO_TARGET_DIR/release/horizon-resourcepackport.exe" ]; then
+    RESOURCEPACKPORT_EXE="$CARGO_TARGET_DIR/release/horizon-resourcepackport.exe"
+  elif [ -f "resourcepack-converter/target/release/horizon-resourcepackport.exe" ]; then
+    RESOURCEPACKPORT_EXE="resourcepack-converter/target/release/horizon-resourcepackport.exe"
+  else
+    ( cd resourcepack-converter && cargo build --release )
+    RESOURCEPACKPORT_EXE="${CARGO_TARGET_DIR:-resourcepack-converter/target}/release/horizon-resourcepackport.exe"
+  fi
 fi
 echo "== app"
 javac --release 21 -nowarn -cp mod-converter/build/horizon-port.jar -d "$B/classes" desktop/src/horizonport/*.java
@@ -32,6 +49,7 @@ JAR_TOOL="$(dirname "$(command -v javac)")/jar"
 cp mod-converter/build/horizon-port.jar mod-converter/tools/vineflower-*.jar "$B/input/"
 cp mod-converter/mappings/horizon-mappings.json "$B/input/mappings/"
 cp "$SHADERPORT_EXE" "$B/input/horizon-shaderport.exe"
+cp "$RESOURCEPACKPORT_EXE" "$B/input/horizon-resourcepackport.exe"
 cp web/public/logo.png web/public/donate.json web/public/making-mods.md "$B/input/"
 if [ -d web/public/i18n ]; then
   mkdir -p "$B/input/i18n"

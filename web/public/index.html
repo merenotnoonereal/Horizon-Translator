@@ -45,6 +45,7 @@
       <div class="tabs" role="tablist">
         <button role="tab" id="tab-mod" aria-selected="true" aria-controls="panel-mod" class="tab active" data-i18n="tab.mod">Mods</button>
         <button role="tab" id="tab-shader" aria-selected="false" aria-controls="panel-shader" class="tab" data-i18n="tab.shader">Shader packs</button>
+        <button role="tab" id="tab-resourcepack" aria-selected="false" aria-controls="panel-resourcepack" class="tab" data-i18n="tab.resourcepack">Resource packs</button>
         <button role="tab" id="tab-make" aria-selected="false" aria-controls="panel-make" class="tab" data-i18n="tab.make">Make a mod</button>
       </div>
 
@@ -179,6 +180,23 @@
           </p>
         </div>
         <button class="go" data-kind="shader" disabled data-i18n="shader.go">Convert shader pack</button>
+        <p class="agree" data-i18n="shader.agree">By converting a file you agree to the <a href="terms.html">Terms of Use</a>: only convert files you're allowed to modify.</p>
+      </div>
+
+      <div class="panel" id="panel-resourcepack" role="tabpanel" aria-labelledby="tab-resourcepack" hidden>
+        <label class="drop" data-kind="resourcepack">
+          <input type="file" accept=".zip" hidden>
+          <span class="drop-icon" aria-hidden="true">⬆</span>
+          <span class="drop-title" data-i18n="resourcepack.drop.title">Drop a resource pack <code>.zip</code> here</span>
+          <span class="drop-sub" data-i18n="resourcepack.drop.sub">Minecraft Java format (1.8 to 1.21+)</span>
+          <span class="drop-file"></span>
+        </label>
+        <div class="options">
+          <p class="hint" data-i18n="resourcepack.hint">
+            Updates pack metadata, 1.8-1.12 texture paths and names, HUD/widget/particle/painting sheets, and language files for Horizon.
+          </p>
+        </div>
+        <button class="go" data-kind="resourcepack" disabled data-i18n="resourcepack.go">Convert resource pack</button>
         <p class="agree" data-i18n="shader.agree">By converting a file you agree to the <a href="terms.html">Terms of Use</a>: only convert files you're allowed to modify.</p>
       </div>
 

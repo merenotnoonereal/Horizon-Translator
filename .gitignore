@@ -1,0 +1,27 @@
+# Horizon's source (scripts/get-horizon.sh downloads it)
+/horizon-src/
+
+# Build output
+mod-converter/build/
+mod-converter/test/build/
+mod-converter/test/fixture/
+mod-converter/out/
+shader-converter/target/
+shader-converter/out/
+desktop/build/
+dist/
+*.class
+
+# Things people convert locally: never commit other people's mods or packs
+*.jar
+!mod-converter/tools/vineflower-*.jar
+/packs/
+# (mods/ holds the shared kit mods: it is committed)
+
+# Editors / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+resourcepack-converter/target/

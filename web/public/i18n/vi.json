@@ -171,5 +171,11 @@
   "terms.7.body": "Trang web này là một dự án cộng đồng. Trang web không được tạo ra bởi, chứng thực bởi hoặc liên kết với Mojang, Microsoft, dự án Horizon, Fabric, Iris, OptiFine hoặc tác giả của bất kỳ mod hay gói shader nào. \"Minecraft\" là nhãn hiệu đã đăng ký của Mojang AB.",
   "terms.8.title": "8. Thay đổi",
   "terms.8.body": "Các điều khoản này có thể thay đổi. Ngày hiển thị ở đầu trang thể hiện phiên bản mới nhất. Việc tiếp tục sử dụng trang web sau khi có thay đổi đồng nghĩa với việc bạn chấp nhận các thay đổi đó.",
-  "terms.back_bottom": "← Quay lại bộ chuyển đổi"
+  "terms.back_bottom": "← Quay lại bộ chuyển đổi",
+  "tab.resourcepack": "Gói tài nguyên",
+  "resourcepack.drop.title": "Thả tệp <code>.zip</code> gói tài nguyên vào đây",
+  "resourcepack.drop.sub": "Định dạng Minecraft Java (1.8 đến 1.21+)",
+  "resourcepack.hint": "Cập nhật siêu dữ liệu gói, đường dẫn và tên kết cấu 1.8-1.12, bảng HUD/tiện ích/hạt/tranh vẽ và tệp ngôn ngữ cho Horizon.",
+  "resourcepack.go": "Chuyển đổi gói tài nguyên",
+  "result.next.resourcepack": "<strong>Tiếp theo:</strong> đặt tệp zip vào thư mục <code>resourcepacks</code> của Horizon (<code>%APPDATA%\\horizon\\resourcepacks</code> trên Windows) và chọn nó trong Options → Resource Packs."
 }

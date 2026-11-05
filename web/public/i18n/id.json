@@ -171,5 +171,11 @@
   "terms.7.body": "Situs ini adalah proyek komunitas. Situs ini tidak dibuat oleh, didukung oleh, atau berafiliasi dengan Mojang, Microsoft, proyek Horizon, Fabric, Iris, OptiFine, atau pembuat mod atau paket shader mana pun. \"Minecraft\" adalah merek dagang dari Mojang AB.",
   "terms.8.title": "8. Perubahan",
   "terms.8.body": "Ketentuan ini dapat berubah. Tanggal di bagian atas menunjukkan versi terbaru. Menggunakan situs setelah perubahan berarti kamu menerima ketentuan tersebut.",
-  "terms.back_bottom": "← Kembali ke penerjemah"
+  "terms.back_bottom": "← Kembali ke penerjemah",
+  "tab.resourcepack": "Paket sumber daya",
+  "resourcepack.drop.title": "Seret <code>.zip</code> paket sumber daya ke sini",
+  "resourcepack.drop.sub": "Format Minecraft Java (1.8 hingga 1.21+)",
+  "resourcepack.hint": "Memperbarui metadata paket, jalur dan nama tekstur 1.8-1.12, lembar HUD/widget/partikel/lukisan, dan file bahasa untuk Horizon.",
+  "resourcepack.go": "Konversi paket sumber daya",
+  "result.next.resourcepack": "<strong>Selanjutnya:</strong> masukkan zip ke folder <code>resourcepacks</code> Horizon (<code>%APPDATA%\\horizon\\resourcepacks</code> di Windows) dan pilih di Options → Resource Packs."
 }

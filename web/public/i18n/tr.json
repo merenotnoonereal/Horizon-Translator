@@ -171,5 +171,11 @@
   "terms.7.body": "Bu site bir topluluk projesidir. Mojang, Microsoft, Horizon projesi, Fabric, Iris, OptiFine veya herhangi bir mod ya da gölgelendirici paketinin yazarları tarafından yapılmamıştır, desteklenmemektedir veya bunlarla bağlantılı değildir. \"Minecraft\", Mojang AB'nin ticari markasıdır.",
   "terms.8.title": "8. Değişiklikler",
   "terms.8.body": "Bu koşullar değişebilir. En üstteki tarih en son sürümü gösterir. Bir değişiklikten sonra siteyi kullanmaya devam etmeniz, değişikliği kabul ettiğiniz anlamına gelir.",
-  "terms.back_bottom": "← Dönüştürücüye geri dön"
+  "terms.back_bottom": "← Dönüştürücüye geri dön",
+  "tab.resourcepack": "Kaynak paketleri",
+  "resourcepack.drop.title": "Bir kaynak paketi <code>.zip</code> dosyasını buraya bırakın",
+  "resourcepack.drop.sub": "Minecraft Java formatı (1.8 - 1.21+)",
+  "resourcepack.hint": "Horizon için paket meta verilerini, 1.8-1.12 doku yollarını ve adlarını, HUD/widget/parçacık/tablo sayfalarını ve dil dosyalarını günceller.",
+  "resourcepack.go": "Kaynak paketini dönüştür",
+  "result.next.resourcepack": "<strong>Sıradaki:</strong> zip dosyasını Horizon'ın <code>resourcepacks</code> klasörüne koyun (Windows'ta <code>%APPDATA%\\horizon\\resourcepacks</code>) ve Seçenekler → Kaynak Paketleri menüsünden seçin."
 }

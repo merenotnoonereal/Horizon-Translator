@@ -1,0 +1,15 @@
+[package]
+name = "horizon-resourcepackport"
+version = "0.1.0"
+edition = "2024"
+description = "Ports Minecraft Java resource packs (1.8 through 1.21+) to Horizon (format 97.1)"
+
+[workspace]
+
+[dependencies]
+png = "0.17"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+serde_json = "1"
+
+[profile.dev]
+opt-level = 2

@@ -171,5 +171,11 @@
   "terms.7.body": "இந்த தளம் ஒரு சமூகத் திட்டம். இது Mojang, Microsoft, Horizon திட்டம், Fabric, Iris, OptiFine அல்லது எந்த மோட் அல்லது ஷேடர் பேக்கின் ஆசிரியர்களாலும் உருவாக்கப்படவில்லை, அங்கீகரிக்கப்படவில்லை அல்லது அவர்களுடன் இணைக்கப்படவில்லை. \"Minecraft\" என்பது Mojang AB-ன் வர்த்தக முத்திரையாகும்.",
   "terms.8.title": "8. மாற்றங்கள்",
   "terms.8.body": "இந்த விதிமுறைகள் மாறக்கூடும். மேலே உள்ள தேதி சமீபத்திய பதிப்பைக் காட்டுகிறது. மாற்றத்திற்குப் பிறகு தளத்தைப் பயன்படுத்துவது நீங்கள் அதை ஏற்றுக்கொண்டதைக் குறிக்கிறது.",
-  "terms.back_bottom": "← மீண்டும் மொழிபெயர்ப்பிக்கு"
+  "terms.back_bottom": "← மீண்டும் மொழிபெயர்ப்பிக்கு",
+  "tab.resourcepack": "வளப் பேக்குகள்",
+  "resourcepack.drop.title": "வளப் பேக் <code>.zip</code> கோப்பை இங்கே இழுத்துப் போடவும்",
+  "resourcepack.drop.sub": "Minecraft Java வடிவம் (1.8 முதல் 1.21+)",
+  "resourcepack.hint": "Horizon-க்காக பேக் மெட்டாடேட்டா, 1.8-1.12 அமைப்புப் பாதைகள் மற்றும் பெயர்கள், HUD/விட்ஜெட்/துகள்/ஓவியத் தாள்கள் மற்றும் மொழி கோப்புகளைப் புதுப்பிக்கிறது.",
+  "resourcepack.go": "வளப் பேக்கை மாற்று",
+  "result.next.resourcepack": "<strong>அடுத்து:</strong> ஜிப் கோப்பை Horizon-ன் <code>resourcepacks</code> கோப்புறையில் (Windows-ல் <code>%APPDATA%\\horizon\\resourcepacks</code>) வைத்து, Options → Resource Packs-ல் தேர்ந்தெடுக்கவும்."
 }
