@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::io::Cursor;
 use horizon_resourcepackport::files::Files;
+use horizon_resourcepackport::legacy;
 use horizon_resourcepackport::mcmeta;
 use horizon_resourcepackport::optifine;
 use horizon_resourcepackport::remap;
@@ -285,4 +286,86 @@ fn test_determinism() {
     let bytes2 = files.zip_bytes().unwrap();
 
     assert_eq!(bytes1, bytes2);
+}
+
+fn files_with(entries: &[(&str, Vec<u8>)]) -> Files {
+    Files {
+        name: "Test.zip".to_string(),
+        entries: entries.iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+        layout_notes: Vec::new(),
+    }
+}
+
+#[test]
+fn overlays_follow_the_packs_newest_version() {
+    // Fresh Animations' layout: every overlay covering format 75 is on in 1.21.11, so all must stay on.
+    let meta = br#"{"pack":{"pack_format":15,"supported_formats":{"min_inclusive":15,"max_inclusive":75},"description":"x"},
+        "overlays":{"entries":[
+            {"directory":"old","formats":{"min_inclusive":15,"max_inclusive":21}},
+            {"directory":"20-3","formats":{"min_inclusive":22,"max_inclusive":75}},
+            {"directory":"21-2","formats":[42,75]},
+            {"directory":"21-11","formats":{"min_inclusive":75,"max_inclusive":75},"min_format":75,"max_format":75}]}}"#;
+    let res = mcmeta::process_mcmeta(Some(meta), "Test");
+    let v: serde_json::Value = serde_json::from_str(&res.updated_json).unwrap();
+    let e = v["overlays"]["entries"].as_array().unwrap();
+    assert_eq!(e[0]["formats"]["max_inclusive"], 21, "an overlay only for older versions stays off");
+    assert_eq!(e[1]["formats"]["max_inclusive"], 999);
+    assert_eq!(e[2]["formats"][1], 999);
+    assert_eq!(e[3]["formats"]["max_inclusive"], 999);
+    assert_eq!(e[3]["max_format"], serde_json::json!([999, 0]));
+}
+
+#[test]
+fn old_blockstates_that_cannot_match_are_dropped() {
+    let mut files = files_with(&[
+        ("assets/minecraft/blockstates/stone_slab.json", br#"{"variants":{"half=bottom":{"model":"block/a"},"half=top":{"model":"block/b"}}}"#.to_vec()),
+        ("assets/minecraft/blockstates/oak_fence.json", br#"{"variants":{"east=false,north=false,south=false,west=false":{"model":"block/c"}}}"#.to_vec()),
+        ("assets/minecraft/blockstates/cobweb.json", br#"{"variants":{"":{"model":"block/cobweb"}}}"#.to_vec()),
+        ("assets/minecraft/blockstates/glass.json", br#"{"variants":{"normal":{"model":"block/glass"}}}"#.to_vec()),
+        ("assets/minecraft/models/block/a.json", b"{}".to_vec()),
+    ]);
+    let notes = legacy::fix_legacy(&mut files, 1);
+    assert!(!files.entries.contains_key("assets/minecraft/blockstates/stone_slab.json"));
+    assert!(!files.entries.contains_key("assets/minecraft/blockstates/oak_fence.json"));
+    assert!(files.entries.contains_key("assets/minecraft/blockstates/cobweb.json"));
+    assert!(files.entries.contains_key("assets/minecraft/blockstates/glass.json"));
+    assert!(files.entries.contains_key("assets/minecraft/models/block/a.json"), "models stay");
+    assert!(notes.iter().any(|n| n.contains("Dropped 2")));
+
+    // Packs from 1.13 on keep theirs.
+    let mut modern = files_with(&[("assets/minecraft/blockstates/stone_slab.json", br#"{"variants":{"type=bottom":{"model":"block/a"}}}"#.to_vec())]);
+    legacy::fix_legacy(&mut modern, 15);
+    assert!(modern.entries.contains_key("assets/minecraft/blockstates/stone_slab.json"));
+}
+
+#[test]
+fn the_1_8_inventory_gets_the_modern_layout() {
+    // Background everywhere (grey), slot frames at the 1.8 crafting grid corner and the 4th armor slot.
+    let w = 256u32;
+    let mut rgba = vec![0u8; (w * w * 4) as usize];
+    let mut set = |x: u32, y: u32, c: [u8; 4]| { let i = ((y * w + x) * 4) as usize; rgba[i..i + 4].copy_from_slice(&c); };
+    for y in 0..166 { for x in 0..176 { set(x, y, [79, 79, 79, 255]); } }
+    for y in 25..43 { for x in 87..105 { set(x, y, [22, 22, 22, 255]); } }   // 1.8 grid's first slot
+    for y in 61..79 { for x in 7..25 { set(x, y, [33, 33, 33, 255]); } }     // armor slot
+    for y in 198..216 { for x in 0..18 { set(x, y, [200, 10, 10, 255]); } } // speed icon
+    let mut png_bytes = Vec::new();
+    {
+        let mut enc = png::Encoder::new(Cursor::new(&mut png_bytes), w, w);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        enc.write_header().unwrap().write_image_data(&rgba).unwrap();
+    }
+    let key = "assets/minecraft/textures/gui/container/inventory.png";
+    let mut files = files_with(&[
+        (key, png_bytes),
+        ("assets/minecraft/textures/item/empty_armor_slot_helmet.png", b"helmet".to_vec()),
+    ]);
+    legacy::fix_legacy(&mut files, 1);
+    let img = sheets::decode_png(&files.entries[key]).unwrap();
+    let px = |x: u32, y: u32| { let i = ((y * img.width + x) * 4) as usize; img.data[i..i + 4].to_vec() };
+    assert_eq!(px(97, 17), vec![22, 22, 22, 255], "grid moved 10 right, 8 up");
+    assert_eq!(px(87, 25 + 18 + 2), vec![79, 79, 79, 255], "old place cleared");
+    assert_eq!(px(76, 61), vec![33, 33, 33, 255], "off-hand slot added");
+    assert!(files.entries.contains_key("assets/minecraft/textures/mob_effect/speed.png"));
+    assert_eq!(files.entries["assets/minecraft/textures/gui/sprites/container/slot/helmet.png"], b"helmet".to_vec());
 }
