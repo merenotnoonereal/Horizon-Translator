@@ -65,7 +65,7 @@ jpackage --type app-image --dest "$B/app-image" --name "$NAME" \
   --copyright "Copyright (C) 2026 Horizon Translator contributors" \
   --description "Converts Fabric mods and shader packs for Horizon" \
   --mac-package-identifier io.github.merenotnoonereal.horizontranslator \
-  --add-modules java.base,java.desktop,jdk.zipfs \
+  --add-modules java.base,java.desktop,jdk.zipfs,jdk.accessibility \
   --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=zip-9"
 APP="$B/app-image/$NAME.app"
 chmod +x "$APP/Contents/app/horizon-shaderport"

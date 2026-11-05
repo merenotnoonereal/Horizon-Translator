@@ -68,7 +68,7 @@ jpackage --type app-image --dest "$B/app-image" --name "Horizon Translator" \
   --icon "$B/logo.ico" --app-version "$APP_VERSION" --vendor "Horizon Translator (community project)" \
   --copyright "Copyright (C) 2026 Horizon Translator contributors" \
   --description "Converts Fabric mods and shader packs for Horizon" \
-  --add-modules java.base,java.desktop,jdk.zipfs \
+  --add-modules java.base,java.desktop,jdk.zipfs,jdk.accessibility \
   --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=zip-9"
 
 echo "== installer"
