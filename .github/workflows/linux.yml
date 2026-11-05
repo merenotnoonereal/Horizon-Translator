@@ -1,0 +1,76 @@
+# Builds the Linux app on GitHub's Ubuntu 22.04 machines and attaches HorizonTranslator-linux-x64.tar.gz to the
+# release (replacing one that is already there), and fixes its line in SHA256SUMS.
+# Why here: a program built on a newer Linux needs that Linux's system library (glibc). Built on Ubuntu 26.04,
+# the shader converter needed glibc 2.43 and failed on Ubuntu 24.04 and older; built here it runs on glibc 2.35+.
+# Runs by itself when a release is published. For a release that's already out: Actions > Linux app >
+# Run workflow, with the release's tag. Left empty, the file is only kept as the run's artifact.
+name: Linux app
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the Linux app to (for example 1.0.8); empty: don't attach"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Line endings
+        # Files uploaded through GitHub's website keep Windows line endings (CRLF), which bash can't run.
+        run: find . -name '*.sh' -not -path './.git/*' -exec perl -pi -e 's/\r$//' {} +
+
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - name: Version
+        run: |
+          if [ -n "$TAG" ]; then echo "APP_VERSION=${TAG#v}" >> "$GITHUB_ENV"; fi
+
+      - name: Build
+        run: bash scripts/build-linux.sh
+
+      - name: Check which glibc it needs
+        run: |
+          f=$(tar -tzf "$GITHUB_WORKSPACE/dist/HorizonTranslator-linux-x64.tar.gz" | grep -E 'lib/app/horizon-(shader|resourcepack)port$')
+          mkdir -p /tmp/x && tar -C /tmp/x -xzf "$GITHUB_WORKSPACE/dist/HorizonTranslator-linux-x64.tar.gz" $f
+          for b in $f; do
+            need=$(objdump -T "/tmp/x/$b" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)
+            echo "$b needs $need"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: dist/HorizonTranslator-linux-x64.tar.gz
+
+      - name: Attach to the release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" dist/HorizonTranslator-linux-x64.tar.gz --clobber
+          # Put this file's checksum in SHA256SUMS (the Windows line is kept).
+          rm -f SHA256SUMS
+          gh release download "$TAG" -p SHA256SUMS || touch SHA256SUMS
+          grep -v 'HorizonTranslator-linux-x64.tar.gz' SHA256SUMS > sums.new || true
+          (cd dist && sha256sum -b HorizonTranslator-linux-x64.tar.gz) >> sums.new
+          mv sums.new SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --clobber

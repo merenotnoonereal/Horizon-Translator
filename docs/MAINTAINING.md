@@ -16,11 +16,13 @@ addresses. Users don't need any of this; see the [README](../README.md).
 
 1. Pick the new version number and build `HorizonTranslator-Setup.exe` with it:
    `APP_VERSION=1.0.3 bash scripts/build-desktop.sh` (the default is in the script).
-   For Linux, on a Linux PC or in WSL (Ubuntu: `apt install openjdk-25-jdk`, plus Rust from rustup.rs), run
-   `APP_VERSION=1.0.3 bash scripts/build-linux.sh`. It writes `dist/HorizonTranslator-linux-x64.tar.gz`.
+   The Linux app builds itself on GitHub (`.github/workflows/linux.yml`, on Ubuntu 22.04) when the release is
+   published. Don't attach one built on a newer Linux: it needs that Linux's glibc (one built on Ubuntu 26.04
+   couldn't run its shader converter on 24.04). `bash scripts/build-linux.sh` still works for a local build.
 2. On GitHub, open *Releases → Draft a new release*, make a tag with **the same number** (`1.0.3` or `v1.0.3`),
-   and attach `HorizonTranslator-Setup.exe` and `HorizonTranslator-linux-x64.tar.gz` with exactly those names.
-   The website's Linux button links to the second one.
+   and attach `HorizonTranslator-Setup.exe` with exactly that name. The Linux workflow adds
+   `HorizonTranslator-linux-x64.tar.gz` (the website's Linux button links to it), and `release-test.yml` then tests
+   every download on GitHub's Windows, Linux and Mac machines (*Actions → Release test*).
    The Mac apps build themselves: publishing the release runs `.github/workflows/mac.yml` on GitHub's Mac
    machines, which attaches `HorizonTranslator-mac-arm64.dmg` (Apple Silicon) and `HorizonTranslator-mac-x64.dmg`
    (Intel) a few minutes later (watch it under *Actions*; *Run workflow* there builds them without a release).
