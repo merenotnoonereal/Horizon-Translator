@@ -1,12 +1,12 @@
 # Tests a published release the way players get it: downloads each app from the release, installs or
 # unpacks it, runs its three converters (--selftest) and opens its window for a screenshot.
-# Runs by itself after a release is published (and the Mac apps are attached), or by hand:
+# Runs by itself after a release is published (once the Linux app is attached), or by hand:
 # Actions > Release test > Run workflow, with the release's tag (empty: the latest release).
 name: Release test
 
 on:
   workflow_run:
-    workflows: ["Mac app"]
+    workflows: ["Linux app"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -27,6 +27,8 @@ jobs:
           - runner: windows-latest
             asset: HorizonTranslator-Setup.exe
           - runner: ubuntu-latest
+            asset: HorizonTranslator-linux-x64.tar.gz
+          - runner: ubuntu-22.04    # the oldest Linux the app supports (glibc 2.35)
             asset: HorizonTranslator-linux-x64.tar.gz
           - runner: macos-15
             asset: HorizonTranslator-mac-arm64.dmg
@@ -98,6 +100,11 @@ jobs:
       - name: Download ${{ matrix.asset }}
         run: |
           mkdir -p "$RUNNER_TEMP/dl"
+          # The Mac apps are built on GitHub after the release is published: wait for them (up to 30 minutes).
+          for i in $(seq 1 60); do
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx "${{ matrix.asset }}" && break
+            echo "waiting for ${{ matrix.asset }}..."; sleep 30
+          done
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "${{ matrix.asset }}" -p SHA256SUMS -D "$RUNNER_TEMP/dl"
           cd "$RUNNER_TEMP/dl"
           # The checksum file has the Windows and Linux files; the Mac ones are built on GitHub after it.
@@ -231,7 +238,7 @@ jobs:
           for f in old-pack-horizon.zip tiny-shaders-horizon.zip; do
             echo "== $f"
             sha256sum */out/"$f" | tee /tmp/h.txt
-            [ "$(wc -l < /tmp/h.txt)" = 4 ] || { echo "::error::$f is missing from some systems"; fail=1; }
+            [ "$(wc -l < /tmp/h.txt)" = 5 ] || { echo "::error::$f is missing from some systems"; fail=1; }
             if [ "$(cut -d' ' -f1 /tmp/h.txt | sort -u | wc -l)" = 1 ]; then echo "same on every system"
             elif [ "$f" = old-pack-horizon.zip ]; then echo "::error::$f differs between systems"; fail=1
             else echo "::warning::$f differs between systems (the shader converter doesn't promise identical zips)"; fi
