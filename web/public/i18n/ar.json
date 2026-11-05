@@ -171,5 +171,11 @@
   "terms.7.body": "هذا الموقع هو مشروع مجتمعي. ولم يتم إنشاؤه بواسطة Mojang أو Microsoft أو مشروع Horizon أو Fabric أو Iris أو OptiFine، ولا يحظى بتأييدهم أو ارتباطهم، ولا بمؤلفي أي مود أو حزمة شيدر. علامة \"Minecraft\" هي علامة تجارية لشركة Mojang AB.",
   "terms.8.title": "8. التغييرات",
   "terms.8.body": "قد تتغير هذه الشروط. يوضح التاريخ الموجود في الأعلى أحدث إصدار. استخدامك للموقع بعد إجراء أي تغيير يعني موافقتك عليه.",
-  "terms.back_bottom": "← العودة إلى المترجم"
+  "terms.back_bottom": "← العودة إلى المترجم",
+  "tab.resourcepack": "حزم الموارد",
+  "resourcepack.drop.title": "أسقط ملف حزمة موارد <code>.zip</code> هنا",
+  "resourcepack.drop.sub": "صيغة Minecraft Java (من 1.8 إلى 1.21+)",
+  "resourcepack.hint": "يحدث بيانات حزمة الموارد ومسارات وأسماء قوام 1.8-1.12 وصفحات HUD/عناصر الواجهة/الجسيمات/اللوحات وملفات اللغة لـ Horizon.",
+  "resourcepack.go": "تحويل حزمة الموارد",
+  "result.next.resourcepack": "<strong>التالي:</strong> ضع ملف zip في مجلد <code>resourcepacks</code> في Horizon (المسار <code>%APPDATA%\\horizon\\resourcepacks</code> على Windows) واختره من الخيارات → حزم الموارد."
 }

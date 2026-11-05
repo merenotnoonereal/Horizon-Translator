@@ -171,5 +171,11 @@
   "terms.7.body": "本サイトはコミュニティによるオープンソースプロジェクトです。Mojang、Microsoft、Horizonプロジェクト、Fabric、Iris、OptiFine、または各Modやシェーダーパックの作者によって作成、承認、提携されたものではありません。「Minecraft」はMojang ABの商標です。",
   "terms.8.title": "8. 規約の変更",
   "terms.8.body": "本利用規約は変更される場合があります。上部の更新日時は最新バージョンを示しています。変更後に本サイトを継続して利用することにより、改定後の規約に同意したものとみなされます。",
-  "terms.back_bottom": "← トランスレーターに戻る"
+  "terms.back_bottom": "← トランスレーターに戻る",
+  "tab.resourcepack": "リソースパック",
+  "resourcepack.drop.title": "リソースパックの<code>.zip</code>をここにドロップ",
+  "resourcepack.drop.sub": "Minecraft Java形式 (1.8から1.21+)",
+  "resourcepack.hint": "Horizon向けにパックのメタデータ、1.8-1.12のテクスチャパスと名称、HUD/ウィジェット/パーティクル/絵画シート、および言語ファイルを更新します。",
+  "resourcepack.go": "リソースパックを変換",
+  "result.next.resourcepack": "<strong>次の手順：</strong>zipファイルをHorizonの<code>resourcepacks</code>フォルダ（Windowsでは<code>%APPDATA%\\horizon\\resourcepacks</code>）に配置し、設定 → リソースパック で選択してください。"
 }

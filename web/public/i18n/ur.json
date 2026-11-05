@@ -171,5 +171,11 @@
   "terms.7.body": "یہ سائٹ ایک کمیونٹی پروجیکٹ ہے۔ یہ Mojang، Microsoft، Horizon پروجیکٹ، Fabric، Iris، OptiFine، یا کسی بھی موڈ یا شیڈر پیک کے مصنفین کی طرف سے نہیں بنائی گئی، نہ ان کی توثیق یافتہ ہے، اور نہ ہی ان سے وابستہ ہے۔ \"Minecraft\" Mojang AB کا ٹریڈ مارک ہے۔",
   "terms.8.title": "8. تبدیلیاں",
   "terms.8.body": "یہ شرائط تبدیل ہو سکتی ہیں۔ سب سے اوپر دی گئی تاریخ تازہ ترین ورژن کو ظاہر کرتی ہے۔ کسی تبدیلی کے بعد سائٹ کا استعمال جاری رکھنے کا مطلب ہے کہ آپ اسے قبول کرتے ہیں۔",
-  "terms.back_bottom": "← مترجم پر واپس جائیں"
+  "terms.back_bottom": "← مترجم پر واپس جائیں",
+  "tab.resourcepack": "وسائل کے پیکس",
+  "resourcepack.drop.title": "وسائل کے پیک کی <code>.zip</code> فائل یہاں ڈراپ کریں",
+  "resourcepack.drop.sub": "Minecraft Java فارمیٹ (1.8 تا 1.21+)",
+  "resourcepack.hint": "Horizon کے لیے پیک میٹا ڈیٹا، 1.8-1.12 بناوٹ کے راستے اور نام، HUD/وجیٹس/پارٹیکلز/پینٹنگ شیٹس، اور زبان کی فائلیں اپ ڈیٹ کرتا ہے۔",
+  "resourcepack.go": "وسائل کا پیک تبدیل کریں",
+  "result.next.resourcepack": "<strong>اگلا مرحلہ:</strong> زپ فائل کو Horizon کے <code>resourcepacks</code> فولڈر میں رکھیں (Windows پر <code>%APPDATA%\\horizon\\resourcepacks</code>) اور اسے Options → Resource Packs میں جا کر چنیں۔"
 }

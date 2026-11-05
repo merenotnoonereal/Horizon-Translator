@@ -171,5 +171,11 @@
   "terms.7.body": "El sitio es un proyecto comunitario. No está creado, respaldado ni afiliado con Mojang, Microsoft, el proyecto Horizon, Fabric, Iris, OptiFine, ni con los autores de ningún mod o paquete de shaders. \"Minecraft\" es una marca registrada de Mojang AB.",
   "terms.8.title": "8. Modificaciones",
   "terms.8.body": "Estos términos pueden modificarse. La fecha superior indica la versión más reciente. El uso continuo del sitio tras una modificación implica tu aceptación de la misma.",
-  "terms.back_bottom": "← Volver al conversor"
+  "terms.back_bottom": "← Volver al conversor",
+  "tab.resourcepack": "Paquetes de recursos",
+  "resourcepack.drop.title": "Arrastra aquí el <code>.zip</code> de un paquete de recursos",
+  "resourcepack.drop.sub": "Formato Minecraft Java (1.8 a 1.21+)",
+  "resourcepack.hint": "Actualiza los metadatos del paquete, las rutas y nombres de texturas de 1.8-1.12, las hojas de HUD/widgets/partículas/cuadros y los archivos de idioma para Horizon.",
+  "resourcepack.go": "Convertir paquete de recursos",
+  "result.next.resourcepack": "<strong>Siguiente paso:</strong> coloca el zip en la carpeta <code>resourcepacks</code> de Horizon (<code>%APPDATA%\\horizon\\resourcepacks</code> en Windows) y elígelo en Opciones → Paquetes de recursos."
 }

@@ -171,5 +171,11 @@
   "terms.7.body": "Tovuti hii ni mradi wa jamii. Haijatengenezwa na, haijaidhinishwa na, au kuhusishwa na Mojang, Microsoft, mradi wa Horizon, Fabric, Iris, OptiFine, au waandishi wa mod au kifurushi chochote cha shader. \"Minecraft\" ni alama ya biashara ya Mojang AB.",
   "terms.8.title": "8. Mabadiliko",
   "terms.8.body": "Masharti haya yanaweza kubadilika. Tarehe iliyo juu inaonyesha toleo jipya zaidi. Kutumia tovuti baada ya mabadiliko kunamaanisha kuwa unayakubali.",
-  "terms.back_bottom": "← Rudi kwenye mfasiri"
+  "terms.back_bottom": "← Rudi kwenye mfasiri",
+  "tab.resourcepack": "Vifurushi vya rasilimali",
+  "resourcepack.drop.title": "Angusha faili ya <code>.zip</code> ya kifurushi cha rasilimali hapa",
+  "resourcepack.drop.sub": "Muundo wa Minecraft Java (1.8 hadi 1.21+)",
+  "resourcepack.hint": "Husasisha metadata ya kifurushi, njia na majina ya maumbo ya 1.8-1.12, laha za HUD/wijeti/chembe/picha, na faili za lugha za Horizon.",
+  "resourcepack.go": "Badilisha kifurushi cha rasilimali",
+  "result.next.resourcepack": "<strong>Kufuata:</strong> weka faili ya zip katika folda ya <code>resourcepacks</code> ya Horizon (<code>%APPDATA%\\horizon\\resourcepacks</code> kwenye Windows) na uichague katika Options → Resource Packs."
 }

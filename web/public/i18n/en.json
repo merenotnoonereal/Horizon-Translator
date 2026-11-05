@@ -171,5 +171,11 @@
   "terms.7.body": "The site is a community project. It isn't made by, endorsed by, or affiliated with Mojang, Microsoft, the Horizon project, Fabric, Iris, OptiFine, or the authors of any mod or shader pack. \"Minecraft\" is a trademark of Mojang AB.",
   "terms.8.title": "8. Changes",
   "terms.8.body": "These terms may change. The date at the top shows the latest version. Using the site after a change means you accept it.",
-  "terms.back_bottom": "← Back to the translator"
+  "terms.back_bottom": "← Back to the translator",
+  "tab.resourcepack": "Resource packs",
+  "resourcepack.drop.title": "Drop a resource pack <code>.zip</code> here",
+  "resourcepack.drop.sub": "Minecraft Java format (1.8 to 1.21+)",
+  "resourcepack.hint": "Updates pack metadata, 1.8-1.12 texture paths and names, HUD/widget/particle/painting sheets, and language files for Horizon.",
+  "resourcepack.go": "Convert resource pack",
+  "result.next.resourcepack": "<strong>Next:</strong> put the zip in Horizon's <code>resourcepacks</code> folder (<code>%APPDATA%\\horizon\\resourcepacks</code> on Windows) and pick it in Options → Resource Packs."
 }

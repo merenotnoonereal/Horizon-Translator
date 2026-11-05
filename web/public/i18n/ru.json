@@ -171,5 +171,11 @@
   "terms.7.body": "Сайт является проектом сообщества. Он не создан, не одобрен и не связан с Mojang, Microsoft, проектом Horizon, Fabric, Iris, OptiFine или авторами модов и шейдеров. «Minecraft» является зарегистрированным товарным знаком Mojang AB.",
   "terms.8.title": "8. Изменение условий",
   "terms.8.body": "Настоящие условия могут изменяться. Дата вверху указывает на версию документа. Использование сайта после изменений означает согласие с новой редакцией.",
-  "terms.back_bottom": "← Назад к транслятору"
+  "terms.back_bottom": "← Назад к транслятору",
+  "tab.resourcepack": "Пакеты ресурсов",
+  "resourcepack.drop.title": "Перетащите <code>.zip</code>-архив с пакетом ресурсов сюда",
+  "resourcepack.drop.sub": "Формат Minecraft Java (от 1.8 до 1.21+)",
+  "resourcepack.hint": "Обновляет метаданные пакета, пути и имена текстур 1.8-1.12, листы HUD/виджетов/частиц/картин и языковые файлы для Horizon.",
+  "resourcepack.go": "Конвертировать пакет ресурсов",
+  "result.next.resourcepack": "<strong>Далее:</strong> скопируйте zip-архив в папку <code>resourcepacks</code> игры Horizon (<code>%APPDATA%\\horizon\\resourcepacks</code> на Windows) и выберите его в меню Настройки → Наборы ресурсов."
 }

@@ -171,5 +171,11 @@
   "terms.7.body": "ఈ సైట్ ఒక కమ్యూనిటీ ప్రాజెక్ట్. ఇది Mojang, Microsoft, Horizon ప్రాజెక్ట్, Fabric, Iris, OptiFine లేదా ఏదైనా మోడ్ లేదా షేడర్ ప్యాక్ రచయితలచే తయారు చేయబడలేదు, ఆమోదించబడలేదు లేదా అనుబంధించబడలేదు. \"Minecraft\" అనేది Mojang AB యొక్క ట్రేడ్‌మార్క్.",
   "terms.8.title": "8. మార్పులు",
   "terms.8.body": "ఈ నిబంధనలు మారవచ్చు. ఎగువన ఉన్న తేదీ తాజా వెర్షన్‌ను చూపుతుంది. మార్పు తర్వాత సైట్‌ను ఉపయోగించడం అంటే మీరు దాన్ని అంగీకరించినట్లే.",
-  "terms.back_bottom": "← తిరిగి ట్రాన్స్‌లేటర్‌కు"
+  "terms.back_bottom": "← తిరిగి ట్రాన్స్‌లేటర్‌కు",
+  "tab.resourcepack": "వనరుల ప్యాక్‌లు",
+  "resourcepack.drop.title": "వనరుల ప్యాక్ <code>.zip</code> ని ఇక్కడ వేయండి",
+  "resourcepack.drop.sub": "Minecraft Java ఫార్మాట్ (1.8 నుండి 1.21+)",
+  "resourcepack.hint": "Horizon కొరకు ప్యాక్ మెటాడేటా, 1.8-1.12 అల్లికల మార్గాలు మరియు పేర్లు, HUD/విడ్జెట్/కణం/చిత్రలేఖన షీట్‌లు మరియు భాషా ఫైల్‌లను అప్‌డేట్ చేస్తుంది.",
+  "resourcepack.go": "వనరుల ప్యాక్ మార్చండి",
+  "result.next.resourcepack": "<strong>తరువాత:</strong> zip ఫైల్‌ను Horizon యొక్క <code>resourcepacks</code> ఫోల్డర్‌లో (Windows లో <code>%APPDATA%\\horizon\\resourcepacks</code>) ఉంచండి మరియు Options → Resource Packs లో దాన్ని ఎంచుకోండి."
 }

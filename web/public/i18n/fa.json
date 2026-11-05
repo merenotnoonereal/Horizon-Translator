@@ -171,5 +171,11 @@
   "terms.7.body": "این سایت یک پروژه جامعه‌محور است. این سایت توسط Mojang، Microsoft، پروژه Horizon، Fabric، Iris، OptiFine، یا سازندگان هیچ ماد یا شیدر پکی ساخته، تأیید یا وابسته به آن‌ها نیست. \"Minecraft\" علامت تجاری Mojang AB است.",
   "terms.8.title": "8. تغییرات",
   "terms.8.body": "این شرایط ممکن است تغییر کنند. تاریخ بالای صفحه نشان‌دهنده آخرین نسخه است. استفاده از سایت پس از اعمال تغییرات به معنای پذیرش آن‌ها توسط شما است.",
-  "terms.back_bottom": "← بازگشت به مترجم"
+  "terms.back_bottom": "← بازگشت به مترجم",
+  "tab.resourcepack": "بسته‌های منابع",
+  "resourcepack.drop.title": "فایل <code>.zip</code> بسته منابع را اینجا رها کنید",
+  "resourcepack.drop.sub": "فرمت Minecraft Java (1.8 تا +1.21)",
+  "resourcepack.hint": "متادیتای بسته، مسیرها و نام‌های بافت 1.8-1.12، صفحات HUD/ابزارک/ذرات/نقاشی و فایل‌های زبان را برای Horizon به‌روزرسانی می‌کند.",
+  "resourcepack.go": "تبدیل بسته منابع",
+  "result.next.resourcepack": "<strong>مرحله بعد:</strong> فایل zip را در پوشه <code>resourcepacks</code> در Horizon قرار دهید (در ویندوز <code>%APPDATA%\\horizon\\resourcepacks</code>) و آن را از مسیر Options → Resource Packs انتخاب کنید."
 }

@@ -171,5 +171,11 @@
   "terms.7.body": "ही साइट एक समुदाय प्रकल्प आहे। हे Mojang, Microsoft, Horizon प्रोजेक्ट, Fabric, Iris, OptiFine किंवा कोणत्याही मोड किंवा शेडर पॅकच्या लेखकांद्वारे बनवले गेलेले, मान्यताप्राप्त किंवा संलग्न नाही। \"Minecraft\" हा Mojang AB चा ट्रेडमार्क आहे।",
   "terms.8.title": "8. बदल",
   "terms.8.body": "या अटी बदलू शकतात। शीर्षस्थानी असलेली तारीख नवीनतम आवृत्ती दर्शवते। बदलानंतर साइट वापरणे म्हणजे तुम्ही ते स्वीकारता।",
-  "terms.back_bottom": "← ट्रान्सलेटरवर परत जा"
+  "terms.back_bottom": "← ट्रान्सलेटरवर परत जा",
+  "tab.resourcepack": "रिसोर्स पॅक्स",
+  "resourcepack.drop.title": "येथे रिसोर्स पॅक <code>.zip</code> टाका",
+  "resourcepack.drop.sub": "Minecraft Java स्वरूप (1.8 ते 1.21+)",
+  "resourcepack.hint": "Horizon साठी पॅक मेटाडेटा, 1.8-1.12 टेक्सचर पाथ आणि नावे, HUD/विजेट/कण/पेंटिंग शीट्स आणि भाषा फाइल्स अपडेट करते.",
+  "resourcepack.go": "रिसोर्स पॅक कन्व्हर्ट करा",
+  "result.next.resourcepack": "<strong>पुढील पायरी:</strong> झिप फाइल Horizon च्या <code>resourcepacks</code> फोल्डरमध्ये ठेवा (Windows वर <code>%APPDATA%\\horizon\\resourcepacks</code>) आणि Options → Resource Packs मध्ये ती निवडा।"
 }

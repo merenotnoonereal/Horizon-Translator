@@ -171,5 +171,11 @@
   "terms.7.body": "本网站为社区开源项目。未由 Mojang、微软、Horizon 项目、Fabric、Iris、OptiFine 或任何模组/光影包作者制作、认可或与之关联。“Minecraft”是 Mojang AB 的注册商标。",
   "terms.8.title": "8. 条款变更",
   "terms.8.body": "本使用条款可能会进行修订。顶部的日期标明了最新版本。在条款变更后继续使用本网站即表示您接受修订后的条款。",
-  "terms.back_bottom": "← 返回转换器"
+  "terms.back_bottom": "← 返回转换器",
+  "tab.resourcepack": "资源包",
+  "resourcepack.drop.title": "将资源包 <code>.zip</code> 拖放到此处",
+  "resourcepack.drop.sub": "Minecraft Java 格式 (1.8 至 1.21+)",
+  "resourcepack.hint": "为 Horizon 更新包元数据、1.8-1.12 纹理路径与名称、HUD/小部件/粒子/画作图表以及语言文件。",
+  "resourcepack.go": "转换资源包",
+  "result.next.resourcepack": "<strong>下一步：</strong>将该 zip 放入 Horizon 的 <code>resourcepacks</code> 文件夹中（Windows 上为 <code>%APPDATA%\\horizon\\resourcepacks</code>），然后在 选项 → 资源包 中进行选择。"
 }

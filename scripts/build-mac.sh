@@ -20,7 +20,12 @@ bash mod-converter/build.sh
 echo "== shader converter"
 if [ -z "${SHADERPORT_BIN:-}" ]; then
   ( cd shader-converter && cargo build --release )
-  SHADERPORT_BIN=shader-converter/target/release/horizon-shaderport
+  SHADERPORT_BIN="${CARGO_TARGET_DIR:-shader-converter/target}/release/horizon-shaderport"
+fi
+echo "== resourcepack converter"
+if [ -z "${RESOURCEPACKPORT_BIN:-}" ]; then
+  ( cd resourcepack-converter && cargo build --release )
+  RESOURCEPACKPORT_BIN="${CARGO_TARGET_DIR:-resourcepack-converter/target}/release/horizon-resourcepackport"
 fi
 echo "== app"
 javac --release 21 -nowarn -cp mod-converter/build/horizon-port.jar -d "$B/classes" desktop/src/horizonport/*.java
@@ -32,6 +37,8 @@ cp mod-converter/build/horizon-port.jar mod-converter/tools/vineflower-*.jar "$B
 cp mod-converter/mappings/horizon-mappings.json "$B/input/mappings/"
 cp "$SHADERPORT_BIN" "$B/input/horizon-shaderport"
 chmod +x "$B/input/horizon-shaderport"
+cp "$RESOURCEPACKPORT_BIN" "$B/input/horizon-resourcepackport"
+chmod +x "$B/input/horizon-resourcepackport"
 cp web/public/logo.png web/public/donate.json web/public/making-mods.md "$B/input/"
 if [ -d web/public/i18n ]; then
   mkdir -p "$B/input/i18n"
@@ -62,6 +69,7 @@ jpackage --type app-image --dest "$B/app-image" --name "$NAME" \
   --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=zip-9"
 APP="$B/app-image/$NAME.app"
 chmod +x "$APP/Contents/app/horizon-shaderport"
+chmod +x "$APP/Contents/app/horizon-resourcepackport"
 # No Apple certificate: an ad-hoc signature, which Apple Silicon needs for the app to start at all.
 codesign --force --deep --sign - "$APP"
 

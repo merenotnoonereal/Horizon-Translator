@@ -46,14 +46,14 @@ public final class TranslatorApp {
 
     final Path appDir;
     Path outDir;
-    File modFile, packFile;
+    File modFile, packFile, resourcePackFile;
 
     JFrame frame;
     JTabbedPane tabs;
-    JLabel modChosen, packChosen, status, outLabel, resultTitle;
-    JCheckBox isAuthor, install, installMod;
+    JLabel modChosen, packChosen, resourcePackChosen, status, outLabel, resultTitle;
+    JCheckBox isAuthor, install, installMod, installResourcePack;
     JTextField authorName;
-    JButton convertMod, convertPack, openResult;
+    JButton convertMod, convertPack, convertResourcePack, openResult;
     JProgressBar progress;
     JEditorPane report;
     JTextArea log;
@@ -93,7 +93,8 @@ public final class TranslatorApp {
             System.exit(r.ok() ? 0 : 1);
         }
         if (args.length >= 4 && args[0].equals("--selftest")) {
-            System.exit(selfTest(appDir, Path.of(args[1]), Path.of(args[2]), Path.of(args[3])));
+            Path rp = args.length >= 5 ? Path.of(args[4]) : null;
+            System.exit(selfTest(appDir, Path.of(args[1]), Path.of(args[2]), Path.of(args[3]), rp));
         }
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
         I18n.setupFonts();
@@ -167,6 +168,7 @@ public final class TranslatorApp {
         tabs.setFont(I18n.uiFont(Font.BOLD, 14f));
         tabs.addTab(I18n.t("tab.mods"), onlyWhenOpen(modPanel()));
         tabs.addTab(I18n.t("tab.shaders"), onlyWhenOpen(shaderTab()));
+        tabs.addTab(I18n.t("tab.resourcepacks"), onlyWhenOpen(resourcePackPanel()));
         kit = new ModKitPanel(this);
         tabs.addTab(I18n.t("tab.kit"), onlyWhenOpen(kit.panel()));
         tabs.addTab(I18n.t("tab.get_mods"), onlyWhenOpen(GetMods.panel(this)));
@@ -351,6 +353,35 @@ public final class TranslatorApp {
         return p;
     }
 
+    void chooseResourcePack(File f) {
+        if (f == null || !f.getName().toLowerCase(Locale.ROOT).endsWith(".zip")) return;
+        resourcePackFile = f;
+        resourcePackChosen.setText(f.getName() + "  ·  " + String.format(Locale.ROOT, "%.1f MB", f.length() / 1048576.0));
+        convertResourcePack.setEnabled(true);
+    }
+
+    JComponent resourcePackPanel() {
+        JPanel p = card();
+        resourcePackChosen = label(" ", ACCENT, 14f, true);
+        p.add(dropZone(I18n.t("resourcepack.drop.title"), I18n.t("resourcepack.drop.sub"), ".zip", this::chooseResourcePack, resourcePackChosen));
+        p.add(Box.createVerticalStrut(12));
+        p.add(wrapLabel(I18n.t("resourcepack.notice"), MUTED));
+        p.add(Box.createVerticalStrut(8));
+        installResourcePack = new JCheckBox(I18n.t("resourcepack.install.check"));
+        installResourcePack.setOpaque(false);
+        installResourcePack.setSelected(true);
+        installResourcePack.setAlignmentX(0);
+        p.add(installResourcePack);
+        p.add(Box.createVerticalStrut(12));
+        convertResourcePack = primary(I18n.t("resourcepack.btn.convert_pack"));
+        convertResourcePack.setEnabled(false);
+        convertResourcePack.addActionListener(e -> convertResourcePackClicked());
+        p.add(convertResourcePack);
+        p.add(Box.createVerticalStrut(6));
+        p.add(agreeLine());
+        return p;
+    }
+
     JComponent outputRow() {
         JPanel r = row();
         outLabel = label(I18n.t("output.saved_in", outDir), MUTED, 13f, false);
@@ -440,6 +471,13 @@ public final class TranslatorApp {
                 () -> convertPack(appDir, pack, inst, outDir));
     }
 
+    void convertResourcePackClicked() {
+        Path pack = resourcePackFile.toPath();
+        boolean inst = installResourcePack.isSelected();
+        run(I18n.t("resourcepack.status.converting", pack.getFileName()),
+                () -> convertResourcePack(appDir, pack, inst, outDir));
+    }
+
     interface Job { Result call() throws Exception; }
 
     record Result(boolean ok, String title, String report, String log, Path where) {}
@@ -447,6 +485,7 @@ public final class TranslatorApp {
     void run(String what, Job job) {
         convertMod.setEnabled(false);
         convertPack.setEnabled(false);
+        if (convertResourcePack != null) convertResourcePack.setEnabled(false);
         if (kit != null && kit.make != null) kit.make.setEnabled(false);
         progress.setVisible(true);
         status.setText(what);
@@ -457,6 +496,7 @@ public final class TranslatorApp {
                 progress.setVisible(false);
                 convertMod.setEnabled(modFile != null);
                 convertPack.setEnabled(packFile != null);
+                if (convertResourcePack != null) convertResourcePack.setEnabled(resourcePackFile != null);
                 if (kit != null && kit.make != null) kit.make.setEnabled(true);
                 Result r;
                 try { r = get(); } catch (Exception e) {
@@ -528,6 +568,32 @@ public final class TranslatorApp {
     static Result convertPack(Path appDir, Path pack, boolean install, Path outDir) throws Exception {
         Path exe = appDir.resolve("horizon-shaderport.exe");
         if (!Files.isRegularFile(exe)) exe = appDir.resolve("horizon-shaderport");
+        if (!Files.isRegularFile(exe)) exe = Path.of("shader-converter/target/release/horizon-shaderport.exe");
+        if (!Files.isRegularFile(exe)) exe = Path.of("shader-converter/target/release/horizon-shaderport");
+        if (!Files.isRegularFile(exe)) exe = Path.of("C:/dev/ht-build/target/release/horizon-shaderport.exe");
+        if (!Files.isRegularFile(exe)) exe = Path.of("C:/dev/ht-build/target/release/horizon-shaderport");
+        Files.createDirectories(outDir);
+        List<String> cmd = new ArrayList<>(List.of(exe.toString(), "port", pack.toString(), "--out", outDir.toString()));
+        if (install) cmd.add("--install");
+        Proc p = exec(cmd, outDir, 20);
+        String stem = pack.getFileName().toString().replaceFirst("(?i)\\.zip$", "");
+        Path zip = outDir.resolve(stem + "-horizon.zip");
+        if (p.code() != 0 || !Files.isRegularFile(zip))
+            return new Result(false, p.timedOut() ? I18n.t("result.timeout") : I18n.t("shader.result.failed"), "", p.out(), null);
+        String after = p.out().lines().filter(l -> l.contains("after:")).findFirst().orElse("Converted").strip();
+        String rep = read(outDir.resolve(stem + "-horizon.md"));
+        String installed = p.out().lines().filter(l -> l.contains("installed")).findFirst().orElse("");
+        String title = installed.isEmpty() ? after : I18n.t("shader.result.installed", after);
+        return new Result(true, title, rep, p.out(), zip);
+    }
+
+    static Result convertResourcePack(Path appDir, Path pack, boolean install, Path outDir) throws Exception {
+        Path exe = appDir.resolve("horizon-resourcepackport.exe");
+        if (!Files.isRegularFile(exe)) exe = appDir.resolve("horizon-resourcepackport");
+        if (!Files.isRegularFile(exe)) exe = Path.of("resourcepack-converter/target/release/horizon-resourcepackport.exe");
+        if (!Files.isRegularFile(exe)) exe = Path.of("resourcepack-converter/target/release/horizon-resourcepackport");
+        if (!Files.isRegularFile(exe)) exe = Path.of("C:/dev/ht-build/target/release/horizon-resourcepackport.exe");
+        if (!Files.isRegularFile(exe)) exe = Path.of("C:/dev/ht-build/target/release/horizon-resourcepackport");
         Files.createDirectories(outDir);
         List<String> cmd = new ArrayList<>(List.of(exe.toString(), "port", pack.toString(), "--out", outDir.toString()));
         if (install) cmd.add("--install");
@@ -544,11 +610,28 @@ public final class TranslatorApp {
     }
 
     static int selfTest(Path appDir, Path jar, Path pack, Path out) throws Exception {
+        return selfTest(appDir, jar, pack, out, null);
+    }
+
+    static int selfTest(Path appDir, Path jar, Path pack, Path out, Path resourcePack) throws Exception {
         Result m = convertMod(appDir, jar, "", false, out);
         System.out.println("mod: " + m.ok() + " | " + m.title() + " | " + m.where());
         Result s = convertPack(appDir, pack, false, out);
         System.out.println("shader: " + s.ok() + " | " + s.title() + " | " + s.where());
-        return m.ok() && s.ok() ? 0 : 1;
+        Path rpZip = resourcePack;
+        if (rpZip == null) {
+            Files.createDirectories(out);
+            rpZip = out.resolve("test-resourcepack.zip");
+            try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(Files.newOutputStream(rpZip))) {
+                zos.putNextEntry(new java.util.zip.ZipEntry("pack.mcmeta"));
+                byte[] meta = "{\"pack\":{\"pack_format\":3,\"description\":\"Test Pack\"}}".getBytes(StandardCharsets.UTF_8);
+                zos.write(meta);
+                zos.closeEntry();
+            }
+        }
+        Result rp = convertResourcePack(appDir, rpZip, false, out);
+        System.out.println("resourcepack: " + rp.ok() + " | " + rp.title() + " | " + rp.where());
+        return m.ok() && s.ok() && rp.ok() ? 0 : 1;
     }
 
     record Proc(int code, String out, boolean timedOut) {}
