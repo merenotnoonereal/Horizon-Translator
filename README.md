@@ -414,3 +414,4 @@ instead of attaching it, unless its licence allows sharing.
   and, loaded by the website from CDNs, browser_wasi_shim (MIT/Apache-2.0) and qrcodejs (MIT).
 - This repository doesn't have a licence file yet. Until one is added, the default is "all rights
   reserved". Add a `LICENSE` (for example MIT) if you want others to reuse the code.
+
