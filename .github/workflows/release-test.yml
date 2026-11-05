@@ -137,7 +137,7 @@ jobs:
           JAVA=$(find "$A" -path '*/bin/*' \( -name java -o -name java.exe \) -type f | head -1)
           case "${{ runner.os }}" in
             Windows) LAUNCHER="$A/Horizon Translator.exe" ;;
-            Linux)   LAUNCHER=$(find "$A" -path '*/bin/Horizon Translator' -type f | head -1) ;;
+            Linux)   LAUNCHER=$(find "$A" -path '*/bin/*' \( -name HorizonTranslator -o -name 'Horizon Translator' \) -type f | head -1) ;;
             macOS)   LAUNCHER=$(find "$A" -path '*/Contents/MacOS/Horizon Translator' -type f | head -1) ;;
           esac
           for x in "$APPJAR" "$JAVA" "$LAUNCHER"; do [ -f "$x" ] || { echo "::error::missing: $x"; exit 1; }; done
@@ -195,9 +195,11 @@ jobs:
         run: |
           S="$RUNNER_TEMP/shots"; mkdir -p "$S"
           X=""; [ "${{ runner.os }}" = Linux ] && X="xvfb-run -a"
+          # macOS has no `timeout`: stop the app ourselves if it hangs.
+          limit() { "$@" & pid=$!; ( sleep 180 && kill -9 $pid 2>/dev/null ) & w=$!; wait $pid; c=$?; kill $w 2>/dev/null || true; return $c; }
           for tab in 0 1 2; do
             # Tabs: 0 Mods, 1 Shader packs, 2 Resource packs.
-            code=0; timeout 180 $X "$LAUNCHER" --screenshot "$S/tab$tab.png" $tab || code=$?
+            code=0; limit $X "$LAUNCHER" --screenshot "$S/tab$tab.png" $tab || code=$?
             echo "tab $tab: launcher exit code $code"
             [ -s "$S/tab$tab.png" ] || { echo "::error::no screenshot of tab $tab: the window didn't open"; exit 1; }
           done
