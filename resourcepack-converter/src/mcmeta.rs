@@ -39,6 +39,9 @@ pub fn process_mcmeta(raw_bytes: Option<&[u8]>, pack_name: &str) -> McmetaResult
         meta["pack"] = json!({ "description": pack_name });
     }
 
+    // The newest format the pack says it supports, read before it is rewritten below.
+    let pack_upper = upper_bound(&meta["pack"], "supported_formats").unwrap_or(orig_format);
+
     let clamped = orig_format.clamp(15, 64);
     let pack = meta.get_mut("pack").unwrap();
 
@@ -59,8 +62,8 @@ pub fn process_mcmeta(raw_bytes: Option<&[u8]>, pack_name: &str) -> McmetaResult
         "Set pack format compatibility: format {clamped} (orig: {orig_format}), supported_formats: [{clamped}, 999], min/max_format: [{clamped}, 0]..[999, 0]"
     ));
 
-    // Handle overlays if present: extend ONLY the newest overlay whose upper bound is < 97
-    if let Some(overlay_notes) = update_overlays(&mut meta) {
+    // Overlays: keep on the ones the pack's newest supported version uses
+    if let Some(overlay_notes) = update_overlays(&mut meta, pack_upper) {
         notes.extend(overlay_notes);
     }
 
@@ -103,63 +106,91 @@ fn synthesize_default_meta(pack_name: &str) -> Value {
     })
 }
 
-/// Update only the newest overlay entry if its upper bound is < 97
-fn update_overlays(meta: &mut Value) -> Option<Vec<String>> {
+/// Overlays are active when the game's format is inside their range. Horizon's format (97) is past the
+/// range of packs made for older versions, so their overlays would all be off. The pack's newest supported
+/// version has every overlay whose range holds that version's format on (for example 20-3, 21-2, 21-5 and
+/// 21-11 at format 75); those get their upper bound raised to 999 so Horizon uses the same set. Overlays for
+/// older versions only stay off.
+fn update_overlays(meta: &mut Value, pack_upper: i64) -> Option<Vec<String>> {
     let entries = meta.get_mut("overlays")?.get_mut("entries")?.as_array_mut()?;
     if entries.is_empty() {
         return None;
     }
+    let newest = entries.iter().filter_map(get_overlay_upper_bound).max().unwrap_or(-1);
+    let target = pack_upper.max(newest);
+    if target >= 97 {
+        return Some(Vec::new());
+    }
 
-    // Find the entry with the highest upper bound
-    let mut best_index = None;
-    let mut highest_bound = -1;
-
-    for (idx, entry) in entries.iter().enumerate() {
-        if let Some(bound) = get_overlay_upper_bound(entry) {
-            if bound >= highest_bound {
-                highest_bound = bound;
-                best_index = Some(idx);
-            }
+    let mut extended = Vec::new();
+    for entry in entries.iter_mut() {
+        let Some(upper) = get_overlay_upper_bound(entry) else { continue };
+        let lower = get_overlay_lower_bound(entry).unwrap_or(i64::MIN);
+        if upper >= 97 || lower > target || upper < target {
+            continue;
         }
+        let dir = entry["directory"].as_str().unwrap_or("unknown").to_string();
+        if entry.get("max_format").is_some() {
+            entry["max_format"] = json!([999, 0]);
+        }
+        if let Some(formats) = entry.get_mut("formats") {
+            if let Some(arr) = formats.as_array_mut() {
+                if let Some(last) = arr.get_mut(1) {
+                    *last = json!(999);
+                } else if arr.len() == 1 {
+                    arr.push(json!(999));
+                }
+            } else if formats.is_object() {
+                formats["max_inclusive"] = json!(999);
+            } else if let Some(n) = formats.as_i64() {
+                *formats = json!({
+                    "min_inclusive": n,
+                    "max_inclusive": 999
+                });
+            }
+        } else if entry.get("max_format").is_none() {
+            entry["max_format"] = json!([999, 0]);
+        }
+        extended.push(format!("`{dir}`"));
     }
 
     let mut notes = Vec::new();
-    if let Some(idx) = best_index {
-        if highest_bound < 97 {
-            let entry = &mut entries[idx];
-            let dir = entry["directory"].as_str().unwrap_or("unknown").to_string();
+    if !extended.is_empty() {
+        notes.push(format!(
+            "Kept on the overlay(s) {} that the pack's newest version (format {target}) uses, by raising their upper format to 999.",
+            extended.join(", ")
+        ));
+    }
+    Some(notes)
+}
 
-            // Extend max_format or formats
-            if entry.get("max_format").is_some() {
-                entry["max_format"] = json!([999, 0]);
-            }
-            if let Some(formats) = entry.get_mut("formats") {
-                if let Some(arr) = formats.as_array_mut() {
-                    if let Some(last) = arr.get_mut(1) {
-                        *last = json!(999);
-                    } else if arr.len() == 1 {
-                        arr.push(json!(999));
-                    }
-                } else if formats.is_object() {
-                    formats["max_inclusive"] = json!(999);
-                } else if let Some(n) = formats.as_i64() {
-                    *formats = json!({
-                        "min_inclusive": n,
-                        "max_inclusive": 999
-                    });
-                }
-            } else if entry.get("max_format").is_none() {
-                // If neither formats nor max_format was set (rare), set max_format
-                entry["max_format"] = json!([999, 0]);
-            }
+/// The upper end of a `supported_formats`-style value: an int, `[min, max]`, or `{min_inclusive, max_inclusive}`;
+/// falls back to `max_format` (int or `[major, minor]`) and then `pack_format`.
+fn upper_bound(obj: &Value, key: &str) -> Option<i64> {
+    let f = &obj[key];
+    let from_formats = f
+        .as_i64()
+        .or_else(|| f.as_array().and_then(|a| a.last()).and_then(|v| v.as_i64()))
+        .or_else(|| f.get("max_inclusive").and_then(|v| v.as_i64()));
+    let from_max = obj["max_format"]
+        .as_i64()
+        .or_else(|| obj["max_format"].as_array().and_then(|a| a.first()).and_then(|v| v.as_i64()));
+    match (from_formats, from_max) {
+        (Some(a), Some(b)) => Some(a.max(b)),
+        (a, b) => a.or(b).or_else(|| obj["pack_format"].as_i64()),
+    }
+}
 
-            notes.push(format!(
-                "Extended newest overlay `{dir}` upper format to 999 (was {highest_bound}) so Horizon activates it without enabling older overlays."
-            ));
+fn get_overlay_lower_bound(entry: &Value) -> Option<i64> {
+    if let Some(min_f) = entry.get("min_format") {
+        if let Some(n) = min_f.as_i64().or_else(|| min_f.as_array().and_then(|a| a.first()).and_then(|v| v.as_i64())) {
+            return Some(n);
         }
     }
-
-    Some(notes)
+    let f = entry.get("formats")?;
+    f.as_i64()
+        .or_else(|| f.as_array().and_then(|a| a.first()).and_then(|v| v.as_i64()))
+        .or_else(|| f.get("min_inclusive").and_then(|v| v.as_i64()))
 }
 
 fn get_overlay_upper_bound(entry: &Value) -> Option<i64> {

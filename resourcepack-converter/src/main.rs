@@ -114,7 +114,11 @@ pub fn port(path: &Path, out: &Path, install: bool) -> Result<PortResult, String
     let remap_stats = remap::remap_pack(&mut files);
 
     // 3. Split legacy texture sheets into modern standalone sprites
-    let sheet_stats = sheets::split_legacy_sheets(&mut files);
+    let mut sheet_stats = sheets::split_legacy_sheets(&mut files);
+
+    // 3b. Pre-1.13 fixes renaming can't do (old blockstates, the 1.8 inventory, moved GUI textures)
+    let legacy_notes = horizon_resourcepackport::legacy::fix_legacy(&mut files, mcmeta_res.original_format);
+    sheet_stats.notes.extend(legacy_notes);
 
     // 4. Convert legacy .lang files to .json
     let lang_stats = lang::convert_legacy_lang(&mut files);

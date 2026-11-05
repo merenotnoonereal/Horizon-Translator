@@ -116,3 +116,15 @@ To support the remaining partial/unsupported features above, the **Horizon clien
    - Extend `crates/horizon-optifine/src/cem.rs` to parse `"animations"` key-value math expressions (`sin`, `cos`, `limb_swing`, `limb_speed`, `age`, `head_yaw`, `head_pitch`) and evaluate them against entity state in `crates/horizon-client-render/src/entity.rs`.
 4. **Faster Parallel Atlas Decoding for Ultra-Large Packs (`Conquest` 31,846 files)**:
    - Parallelize sprite PNG decoding and mipmap generation in `crates/horizon-client-render/src/sprites.rs` using `par_map` so packs with >20,000 textures rebuild in a few seconds rather than >12 seconds.
+
+---
+
+## 7. Fixed after the owner's own in-game test (2026-11-05)
+
+The owner loaded five converted packs in Horizon and found three problems the run above missed. All three were converter bugs, now fixed (tests in `tests/pack_tests.rs`):
+
+1. **Dysfunctional's PvP failed to load** (`resource reload failed: unbound gallery block state`, then Horizon unloaded every pack). Its 1.8 blockstate files name the old block properties (`half=` on slabs, `variants` for fences and panes), so some of today's block states had no model. Pre-1.13 packs now keep only blockstates whose single variant is `""`; the other 159 are dropped and the game's own blockstates use the pack's models and textures.
+2. **Fresh Animations' sheep had floating heads.** The converter switched on only the newest overlay (`21-11`); Minecraft 1.21.11 uses all four (`20-3`, `21-2`, `21-5`, `21-11`), and `21-2` has the 1.21.2+ sheep model. Every overlay that the pack's newest version uses is now kept on.
+3. **Default Dark Mode's inventory was misaligned.** The 1.8 inventory image has the crafting grid 10 px left and 8 px down from where 1.9+ draws the slots, and no off-hand slot. The converter now moves it and adds the slot, copies the empty armor slot icons to `gui/sprites/container/slot/` and cuts the status effect icons into `textures/mob_effect/`.
+
+Other 1.8 container screens whose layout changed later (brewing stand, villager, horse, beacon) are not converted yet.
