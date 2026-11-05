@@ -1,0 +1,237 @@
+# Tests a published release the way players get it: downloads each app from the release, installs or
+# unpacks it, runs its three converters (--selftest) and opens its window for a screenshot.
+# Runs by itself after a release is published (and the Mac apps are attached), or by hand:
+# Actions > Release test > Run workflow, with the release's tag (empty: the latest release).
+name: Release test
+
+on:
+  workflow_run:
+    workflows: ["Mac app"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to test (for example 1.0.8); empty: the latest release"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'release')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            asset: HorizonTranslator-Setup.exe
+          - runner: ubuntu-latest
+            asset: HorizonTranslator-linux-x64.tar.gz
+          - runner: macos-15
+            asset: HorizonTranslator-mac-arm64.dmg
+          - runner: macos-15-intel
+            asset: HorizonTranslator-mac-x64.dmg
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # Only to build the test mod below; the app is tested with its own bundled Java.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Which release
+        run: |
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ] && [ "${{ github.event_name }}" = "workflow_run" ]; then TAG="${{ github.event.workflow_run.head_branch }}"; fi
+          if [ -z "$TAG" ]; then TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName); fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Testing release $TAG on ${{ matrix.runner }}"
+
+      - name: Test inputs (made here, nobody else's files)
+        run: |
+          find . -name '*.sh' -not -path './.git/*' -exec perl -pi -e 's/\r$//' {} +
+          T="$RUNNER_TEMP/in"; mkdir -p "$T"
+          # The repo's MIT test mod (Sneak HUD), built as run-test.sh does.
+          cd mod-converter
+          bash test/make-fixture.sh
+          F=test/fixture; B="$RUNNER_TEMP/fx"; mkdir -p "$B/stubs" "$B/mod"
+          javac --release 21 -d "$B/stubs" $(find $F/stubs -name '*.java')
+          javac --release 21 -cp "$B/stubs" -d "$B/mod" $(find $F/mod/src -name '*.java')
+          jar --create --file "$T/sneakhud.jar" -C "$B/mod" . -C $F/mod/resources .
+          cd ..
+          # A tiny shader pack.
+          mkdir -p "$RUNNER_TEMP/sp/shaders"
+          printf '#version 120\nvarying vec2 uv;\nvoid main() {\n    gl_Position = ftransform();\n    uv = gl_MultiTexCoord0.xy;\n}\n' > "$RUNNER_TEMP/sp/shaders/final.vsh"
+          printf '#version 120\nuniform sampler2D colortex0;\nvarying vec2 uv;\nvoid main() {\n    vec3 c = texture2D(colortex0, uv).rgb;\n    gl_FragColor = vec4(c * vec3(1.0, 0.95, 0.9), 1.0);\n}\n' > "$RUNNER_TEMP/sp/shaders/final.fsh"
+          # A small old-style (1.8) resource pack: renamed folders and files, a .lang file.
+          R="$RUNNER_TEMP/rp"; mkdir -p "$R/assets/minecraft/textures/blocks" "$R/assets/minecraft/lang"
+          printf '{"pack":{"pack_format":1,"description":"Release test pack"}}' > "$R/pack.mcmeta"
+          printf 'item.diamond.name=Shiny\n' > "$R/assets/minecraft/lang/en_US.lang"
+          PY=python3; "$PY" -c "" 2>/dev/null || PY=python
+          "$PY" - "$RUNNER_TEMP" "$T" <<'EOF'
+          import sys, zipfile, zlib, struct, os
+          tmp, out = sys.argv[1], sys.argv[2]
+          def png(w, h, rgb):  # a plain RGB PNG, no libraries needed
+              raw = b"".join(b"\0" + bytes(rgb) * w for _ in range(h))
+              chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d))
+              return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+          rp = os.path.join(tmp, "rp")
+          open(os.path.join(rp, "assets/minecraft/textures/blocks/grass_side.png"), "wb").write(png(16, 16, (90, 160, 60)))
+          open(os.path.join(rp, "assets/minecraft/textures/blocks/stone.png"), "wb").write(png(16, 16, (120, 120, 120)))
+          for name, root in (("tiny-shaders.zip", os.path.join(tmp, "sp")), ("old-pack.zip", rp)):
+              with zipfile.ZipFile(os.path.join(out, name), "w", zipfile.ZIP_DEFLATED) as z:
+                  for d, _, files in sorted(os.walk(root)):
+                      for f in sorted(files):
+                          p = os.path.join(d, f)
+                          z.write(p, os.path.relpath(p, root).replace(os.sep, "/"))
+          EOF
+          ls -la "$T"
+
+      - name: Download ${{ matrix.asset }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dl"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "${{ matrix.asset }}" -p SHA256SUMS -D "$RUNNER_TEMP/dl"
+          cd "$RUNNER_TEMP/dl"
+          # The checksum file has the Windows and Linux files; the Mac ones are built on GitHub after it.
+          if grep -q "${{ matrix.asset }}" SHA256SUMS; then
+            want=$(grep "${{ matrix.asset }}" SHA256SUMS | cut -d' ' -f1)
+            have=$( (sha256sum "${{ matrix.asset }}" 2>/dev/null || shasum -a 256 "${{ matrix.asset }}") | cut -d' ' -f1)
+            [ "$want" = "$have" ] && echo "checksum ok" || { echo "::error::checksum differs from SHA256SUMS"; exit 1; }
+          else
+            echo "not in SHA256SUMS (Mac files are added later): checksum skipped"
+          fi
+
+      - name: Install (Windows installer, silent)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process "$env:RUNNER_TEMP\dl\${{ matrix.asset }}" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$env:RUNNER_TEMP\app" -Wait -PassThru
+          "installer exit code: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { exit 1 }
+          Get-ChildItem "$env:RUNNER_TEMP\app" | Select-Object Name
+
+      - name: Unpack (Linux)
+        if: runner.os == 'Linux'
+        run: mkdir -p "$RUNNER_TEMP/app" && tar -C "$RUNNER_TEMP/app" -xzf "$RUNNER_TEMP/dl/${{ matrix.asset }}"
+
+      - name: Install (Mac disk image)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/dmg" "$RUNNER_TEMP/dl/${{ matrix.asset }}"
+          mkdir -p "$RUNNER_TEMP/app"
+          cp -R "$RUNNER_TEMP/dmg/"*.app "$RUNNER_TEMP/app/"
+          hdiutil detach "$RUNNER_TEMP/dmg"
+
+      - name: Find the app's parts
+        run: |
+          A="$RUNNER_TEMP/app"
+          APPJAR=$(find "$A" -name horizon-translator-app.jar | head -1)
+          JAVA=$(find "$A" -path '*/bin/*' \( -name java -o -name java.exe \) -type f | head -1)
+          case "${{ runner.os }}" in
+            Windows) LAUNCHER="$A/Horizon Translator.exe" ;;
+            Linux)   LAUNCHER=$(find "$A" -path '*/bin/Horizon Translator' -type f | head -1) ;;
+            macOS)   LAUNCHER=$(find "$A" -path '*/Contents/MacOS/Horizon Translator' -type f | head -1) ;;
+          esac
+          for x in "$APPJAR" "$JAVA" "$LAUNCHER"; do [ -f "$x" ] || { echo "::error::missing: $x"; exit 1; }; done
+          APPDIR=$(dirname "$APPJAR")
+          for f in horizon-port.jar horizon-src.zip mappings/horizon-mappings.json logo.png; do
+            [ -f "$APPDIR/$f" ] || { echo "::error::the app has no $f"; exit 1; }
+          done
+          ls "$APPDIR" | grep -E 'horizon-(shader|resourcepack)port' || { echo "::error::converter programs missing"; exit 1; }
+          echo "APPDIR=$APPDIR" >> "$GITHUB_ENV"; echo "JAVA=$JAVA" >> "$GITHUB_ENV"; echo "LAUNCHER=$LAUNCHER" >> "$GITHUB_ENV"
+          echo "app: $APPDIR"; echo "java: $JAVA"; echo "launcher: $LAUNCHER"
+
+      - name: Version inside the app
+        run: |
+          cd "$APPDIR"
+          "$JAVA" -version 2>&1 | head -1
+          PY=python3; "$PY" -c "" 2>/dev/null || PY=python
+          have=$("$PY" -c "import zipfile,sys;print(zipfile.ZipFile(sys.argv[1]).read('horizonport/app-version.txt').decode().strip())" horizon-translator-app.jar)
+          echo "app version: $have (release: ${TAG#v})"
+          [ "$have" = "${TAG#v}" ] || { echo "::error::app says $have, release is $TAG (the update bar would never go away)"; exit 1; }
+
+      - name: Self-test (mod, shader pack, resource pack)
+        run: |
+          O="$RUNNER_TEMP/out"; I="$RUNNER_TEMP/in"
+          cd "$APPDIR"
+          "$JAVA" -Dstdout.encoding=UTF-8 -Duser.language=en -cp horizon-translator-app.jar horizonport.TranslatorApp \
+            --selftest "$I/sneakhud.jar" "$I/tiny-shaders.zip" "$O" "$I/old-pack.zip" | tee "$RUNNER_TEMP/selftest.txt"
+          code=${PIPESTATUS[0]}
+          echo "exit code: $code"
+          ls -la "$O"
+          [ "$code" = 0 ] || { echo "::error::self-test failed"; exit 1; }
+          grep -q '^mod: true' "$RUNNER_TEMP/selftest.txt"
+          grep -q '^shader: true' "$RUNNER_TEMP/selftest.txt"
+          grep -q '^resourcepack: true' "$RUNNER_TEMP/selftest.txt"
+
+      - name: Check the converted resource pack
+        run: |
+          PY=python3; "$PY" -c "" 2>/dev/null || PY=python
+          "$PY" - "$RUNNER_TEMP/out/old-pack-horizon.zip" <<'EOF'
+          import sys, zipfile, json
+          z = zipfile.ZipFile(sys.argv[1]); names = set(z.namelist())
+          print("\n".join(sorted(names)))
+          meta = json.loads(z.read("pack.mcmeta").decode("utf-8-sig"))
+          print("pack.mcmeta:", json.dumps(meta))
+          bad = []
+          if meta["pack"]["pack_format"] < 15: bad.append("pack_format not raised")
+          if "Release test pack" not in json.dumps(meta): bad.append("description lost")
+          if "assets/minecraft/textures/block/grass_block_side.png" not in names: bad.append("grass_side.png not renamed into textures/block/")
+          if "assets/minecraft/textures/block/stone.png" not in names: bad.append("textures/blocks not moved to textures/block")
+          if not any(n.startswith("assets/minecraft/lang/") and n.endswith(".json") for n in names): bad.append(".lang not turned into .json")
+          if bad: print("::error::" + "; ".join(bad)); sys.exit(1)
+          print("resource pack converted as expected")
+          EOF
+
+      - name: Open the window (the real launcher) and take screenshots
+        run: |
+          S="$RUNNER_TEMP/shots"; mkdir -p "$S"
+          X=""; [ "${{ runner.os }}" = Linux ] && X="xvfb-run -a"
+          for tab in 0 1 2; do
+            # Tabs: 0 Mods, 1 Shader packs, 2 Resource packs.
+            code=0; timeout 180 $X "$LAUNCHER" --screenshot "$S/tab$tab.png" $tab || code=$?
+            echo "tab $tab: launcher exit code $code"
+            [ -s "$S/tab$tab.png" ] || { echo "::error::no screenshot of tab $tab: the window didn't open"; exit 1; }
+          done
+          ls -la "$S"
+
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-test-${{ matrix.runner }}
+          path: |
+            ${{ runner.temp }}/shots
+            ${{ runner.temp }}/out/*.zip
+            ${{ runner.temp }}/out/*.md
+            ${{ runner.temp }}/selftest.txt
+
+  same-output:
+    # The converters must give the same files on every system.
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+      - name: Compare
+        run: |
+          cd results
+          fail=0
+          for f in old-pack-horizon.zip tiny-shaders-horizon.zip; do
+            echo "== $f"
+            sha256sum */out/"$f" | tee /tmp/h.txt
+            [ "$(wc -l < /tmp/h.txt)" = 4 ] || { echo "::error::$f is missing from some systems"; fail=1; }
+            if [ "$(cut -d' ' -f1 /tmp/h.txt | sort -u | wc -l)" = 1 ]; then echo "same on every system"
+            elif [ "$f" = old-pack-horizon.zip ]; then echo "::error::$f differs between systems"; fail=1
+            else echo "::warning::$f differs between systems (the shader converter doesn't promise identical zips)"; fi
+          done
+          exit $fail
